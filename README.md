@@ -1,4 +1,4 @@
-# FlexDevice v2.5.4
+# FlexDevice
 
 **ESP32 FLEX Paging Transmitter - UART/USB Slave Device for Raspberry Pi, PC, and Embedded Systems**
 
@@ -12,7 +12,7 @@ FlexDevice is an ESP32-based FLEX paging transmitter designed as a serial slave 
 - **AT Command Protocol** - Human-readable serial commands
 - **Binary Protocol** - High-performance packet-based communication
 - **Automatic Detection** - Seamless switching between modes
-- **Time Synchronization** - Automatic clock sync with drift correction (v2.5.4)
+- **Time Synchronization** - Automatic clock sync with drift correction (v2.5.3+)
 
 ### Core Functionality
 - **FLEX Encoding** - On-device message encoding (up to 248 characters)
@@ -21,7 +21,7 @@ FlexDevice is an ESP32-based FLEX paging transmitter designed as a serial slave 
 - **Core 0 Isolation** - Dedicated RF transmission core
 - **Event Notifications** - Async events (TX_START, TX_DONE, TX_FAILED)
 
-### Binary Protocol (v2.5.4)
+### Binary Protocol
 - **Fixed 512-byte packets** with COBS framing
 - **CRC16-CCITT** error detection (99.998% error coverage)
 - **UUID tracking** for message correlation (128-bit)
@@ -81,7 +81,7 @@ AT+MAILDROP=<0|1>           - Set/query mail drop flag
 AT+MAILDROP?
 ```
 
-### Clock Configuration (v2.5.4)
+### Clock Configuration
 ```
 AT+CCLK=<timestamp>,<tz>    - Set clock manually
 AT+CCLK?                    - Query current time
@@ -140,7 +140,7 @@ Offset    | Size | Field              | Description
 - CRC at fixed offset 510 validates entire packet
 
 
-### Timestamp Header (8 bytes) - v2.5.4
+### Timestamp Header (8 bytes)
 
 ```c
 typedef struct __attribute__((packed)) {
@@ -209,7 +209,7 @@ Binary packets are COBS-encoded before transmission to ensure binary-safe commun
 
 ---
 
-## Time Synchronization (v2.5.4)
+## Time Synchronization
 
 ### Automatic Sync (Binary Protocol)
 
@@ -478,7 +478,7 @@ flex-fsk-tx-v2.5/
 | Radio TX | 1-3 sec | Message-dependent |
 | Latency (Serial) | 200-1000 ms | Includes TX time |
 
-## Memory Usage (v2.5.4)
+## Memory Usage
 
 | Component | ROM | RAM |
 |-----------|-----|-----|
@@ -503,7 +503,7 @@ flex-fsk-tx-v2.5/
 - Check device power
 
 ### Time Sync Not Working
-- Ensure firmware is v2.5.4
+- Ensure firmware is v2.5.3+
 - Ensure client is v2.5.3+
 - Check logs: `AT+LOGS?50`
 - Verify drift check logs: "CCLK: Auto-adjusted..."
