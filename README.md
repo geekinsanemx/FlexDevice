@@ -1,8 +1,8 @@
 # FlexDevice v2.5.4
 
-**Dual-Mode UART/Serial Firmware: AT Commands + Binary Protocol with Time Synchronization**
+**ESP32 FLEX Paging Transmitter - UART/USB Slave Device for Raspberry Pi, PC, and Embedded Systems**
 
-ESP32-based FLEX pager message transmitter with automatic clock synchronization and async event notifications.
+FlexDevice is an ESP32-based FLEX paging transmitter designed as a serial slave device. It connects to Raspberry Pi, PC, or any host with UART/USB communication, providing dual-mode interface (AT commands + binary protocol) with automatic clock synchronization and async event notifications.
 
 ---
 
