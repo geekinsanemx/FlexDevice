@@ -46,12 +46,12 @@ int  flex_open(FlexDevice *dev, const char *device, int baudrate);
 void flex_close(FlexDevice *dev);
 
 // Send and wait for ACK
-int  flex_send_msg(FlexDevice *dev, uint32_t capcode, float frequency,
+int  flex_send_msg(FlexDevice *dev, uint64_t capcode, float frequency,
                    int8_t power, uint8_t mail_drop, const char *message,
                    char *uuid_out);  // uuid_out: 37-byte buffer or NULL
 
 // Send and wait for ACK + TX_DONE event
-int  flex_send_msg_wait(FlexDevice *dev, uint32_t capcode, float frequency,
+int  flex_send_msg_wait(FlexDevice *dev, uint64_t capcode, float frequency,
                         int8_t power, uint8_t mail_drop, const char *message,
                         char *uuid_out, int wait_timeout_sec);
 
@@ -126,7 +126,7 @@ sudo usermod -aG dialout $USER
 ```
 
 **Timeout waiting for ACK:**
-- Verify firmware v2.5.1+ on the ESP32
+- Verify firmware v2.5.5+ on the ESP32 (v2.5.5 required for full 64-bit capcode support)
 - Verify baudrate (default 115200)
 - Try a different USB cable
 

@@ -370,13 +370,13 @@ typedef struct {
 ```c
 typedef struct {
     uint8_t msg_uuid[16];       // UUID of message being transmitted
-    uint32_t capcode;           // FLEX capcode
+    uint64_t capcode;           // FLEX capcode (up to 4,297,068,542)
 } evt_tx_start_payload_t;
 ```
 **Wire format**:
 ```
 [0-15]   uint8_t[16]  msg_uuid
-[16-19]  uint32_t     capcode
+[16-23]  uint64_t     capcode (little-endian)
 ```
 
 ### EVT_TX_COMPLETE (0xC2)
