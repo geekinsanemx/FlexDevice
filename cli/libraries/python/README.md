@@ -42,7 +42,7 @@ PACKET_PAYLOAD_SIZE  = 480   # Max payload bytes
 PACKET_CRC_OFFSET    = 510   # CRC location
 PACKET_TS_OFFSET     = 502   # Timestamp location
 MAX_MESSAGE_PROTO    = 255   # Protocol max (firmware truncates to 248)
-CMD_SEND_ARGS_SIZE   = 11    # Fixed payload size for CMD_SEND_FLEX
+CMD_SEND_ARGS_SIZE   = 15    # Fixed payload size for CMD_SEND_FLEX
 
 # Packet types
 PKT_TYPE_CMD = 0x01  # Command (host → device)
@@ -146,12 +146,12 @@ except FlexRejectedError as e:
 
 Payload layout (little-endian):
 ```python
-[0-3]   capcode      struct.pack('<I', capcode)      # uint32
-[4-7]   frequency    struct.pack('<f', frequency)    # IEEE 754 float
-[8]     tx_power     struct.pack('b', power)         # int8
-[9]     mail_drop    struct.pack('B', mail_drop)     # uint8
-[10]    msg_len      struct.pack('B', len(message))  # uint8
-[11+]   message      message bytes (UTF-8)
+[0-7]   capcode      struct.pack('<Q', capcode)      # uint64
+[8-11]  frequency    struct.pack('<f', frequency)    # IEEE 754 float
+[12]    tx_power     struct.pack('b', power)         # int8
+[13]    mail_drop    struct.pack('B', mail_drop)     # uint8
+[14]    msg_len      struct.pack('B', len(message))  # uint8
+[15+]   message      message bytes (UTF-8)
 ```
 
 Returns complete 512-byte packet via `_build_packet()`.

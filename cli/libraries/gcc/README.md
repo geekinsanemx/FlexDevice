@@ -80,14 +80,14 @@ typedef struct {
 
 **Payload Layouts**:
 
-CMD_SEND_FLEX (11 fixed bytes + message):
+CMD_SEND_FLEX (15 fixed bytes + message):
 ```
-[0-3]   capcode      (little-endian uint32)
-[4-7]   frequency    (IEEE 754 float, little-endian)
-[8]     tx_power     (int8)
-[9]     mail_drop    (uint8, 0/1)
-[10]    msg_len      (uint8)
-[11+]   message      (UTF-8 text, max 255 bytes)
+[0-7]   capcode      (little-endian uint64)
+[8-11]  frequency    (IEEE 754 float, little-endian)
+[12]    tx_power     (int8)
+[13]    mail_drop    (uint8, 0/1)
+[14]    msg_len      (uint8)
+[15+]   message      (UTF-8 text, max 255 bytes)
 ```
 
 CMD_PING: Empty payload

@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
     }
 
     const char *device  = argv[optind];
-    uint32_t    capcode = (uint32_t)atoll(argv[optind + 1]);
+    uint64_t    capcode = (uint64_t)strtoull(argv[optind + 1], NULL, 10);
     const char *message = argv[optind + 2];
 
     FlexDevice dev;
@@ -68,8 +68,8 @@ int main(int argc, char *argv[]) {
     dev.verbose = verbose;
 
     printf("Connected to %s @ %d baud\n", device, baudrate);
-    printf("Capcode: %u  Freq: %.4f MHz  Power: %d dBm  Mail drop: %s\n",
-           capcode, frequency, power, mail_drop ? "yes" : "no");
+    printf("Capcode: %llu  Freq: %.4f MHz  Power: %d dBm  Mail drop: %s\n",
+           (unsigned long long)capcode, frequency, power, mail_drop ? "yes" : "no");
     printf("Message: \"%s\" (%zu bytes)\n\n", message, strlen(message));
 
     char uuid_str[37];
