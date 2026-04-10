@@ -560,7 +560,14 @@ flex-fsk-tx-v2.5/
 
 ## Version History
 
-### v2.5.4 (2026-04-05) - Current
+### v2.5.5 (2026-04-09) - Current
+- **BREAKING CHANGE**: Fixed capcode field size from 4 bytes to 8 bytes (uint32_t → uint64_t)
+- Binary protocol now supports full FLEX capcode range (up to 4,297,068,542)
+- Updated CMD_SEND_FLEX payload structure with new offsets
+- Updated all client libraries (C/GCC, Python) for 8-byte capcode support
+- Note: Clients using v2.5.4 or earlier must update to v2.5.5 for compatibility
+
+### v2.5.4 (2026-04-05)
 - Added AT+CCLK command for manual clock setting
 - Timezone sync from binary protocol packets
 - Fixed segfault in client with invalid timestamps
