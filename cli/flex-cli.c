@@ -20,7 +20,7 @@
 #include <getopt.h>
 #include "libflex_binary/FlexDevice.h"
 
-#define CURRENT_VERSION "v2.5.3"
+#define CURRENT_VERSION "v2.5.5"
 
 static void print_usage(const char *prog) {
     printf("Usage: %s [OPTIONS] CAPCODE MESSAGE\n\n", prog);
@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    uint32_t    capcode = (uint32_t)atoll(argv[optind]);
+    uint64_t    capcode = (uint64_t)strtoull(argv[optind], NULL, 10);
     const char *message = argv[optind + 1];
 
     if (verbose) {
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         printf("Frequency: %.4f MHz\n", frequency);
         printf("Power:     %d dBm\n", power);
         printf("Mail drop: %s\n", mail_drop ? "yes" : "no");
-        printf("Capcode:   %u\n", capcode);
+        printf("Capcode:   %llu\n", (unsigned long long)capcode);
         printf("Message:   \"%s\" (%zu bytes)\n\n", message, strlen(message));
     }
 
@@ -128,8 +128,8 @@ int main(int argc, char *argv[]) {
     char uuid_str[37];
     int result;
 
-    printf("Sending message to capcode=%u freq=%.4f MHz power=%d dBm mail_drop=%s\n",
-           capcode, frequency, power, mail_drop ? "yes" : "no");
+    printf("Sending message to capcode=%llu freq=%.4f MHz power=%d dBm mail_drop=%s\n",
+           (unsigned long long)capcode, frequency, power, mail_drop ? "yes" : "no");
 
     if (wait_for_done) {
         result = flex_send_msg_wait(&dev, capcode, frequency, (int8_t)power,

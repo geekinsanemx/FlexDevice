@@ -215,30 +215,30 @@ Binary packets are COBS-encoded before transmission to ensure binary-safe commun
 ```
 Offset  | Size | Field         | Type      | Description
 --------|------|---------------|-----------|----------------------------------
-[0-3]   | 4    | capcode       | uint32_t  | FLEX capcode (little-endian)
-[4-7]   | 4    | frequency     | float     | Frequency in MHz (IEEE 754)
-[8]     | 1    | power         | int8_t    | TX power in dBm (2-20)
-[9]     | 1    | maildrop      | uint8_t   | Mail drop flag (0=no, 1=yes)
-[10]    | 1    | message_len   | uint8_t   | Message length (0-248)
-[11-258]| 248  | message       | char[]    | Message text (UTF-8, null-terminated)
+[0-7]   | 8    | capcode       | uint64_t  | FLEX capcode (little-endian, max 4,297,068,542)
+[8-11]  | 4    | frequency     | float     | Frequency in MHz (IEEE 754)
+[12]    | 1    | power         | int8_t    | TX power in dBm (2-20)
+[13]    | 1    | maildrop      | uint8_t   | Mail drop flag (0=no, 1=yes)
+[14]    | 1    | message_len   | uint8_t   | Message length (0-248)
+[15-262]| 248  | message       | char[]    | Message text (UTF-8, null-terminated)
 ```
 
 **Example payload bytes:**
 ```
-Capcode: 1234567 (0x0012D687)
+Capcode: 1234567 (0x000000000012D687)
 Frequency: 931.9375 MHz
 Power: 10 dBm
 Maildrop: 0
 Message: "Hello World" (11 chars)
 
 Bytes (hex):
-87 D6 12 00           // capcode (little-endian)
-00 00 6A 44           // frequency 931.9375 (IEEE 754 float)
-0A                    // power = 10
-00                    // maildrop = 0
-0B                    // message_len = 11
-48 65 6C 6C 6F 20 57  // "Hello W"
-6F 72 6C 64 00        // "orld\0"
+87 D6 12 00 00 00 00 00  // capcode (little-endian, 8 bytes)
+00 00 6A 44              // frequency 931.9375 (IEEE 754 float)
+0A                       // power = 10
+00                       // maildrop = 0
+0B                       // message_len = 11
+48 65 6C 6C 6F 20 57     // "Hello W"
+6F 72 6C 64 00           // "orld\0"
 ```
 
 **Complete documentation:** See [docs/BINARY_PROTOCOL.md](docs/BINARY_PROTOCOL.md) for all payload structures.

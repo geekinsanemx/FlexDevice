@@ -239,7 +239,7 @@ def _build_packet(pkt_type: int, opcode: int, seq: int,
 def _build_cmd_send_flex(seq: int, msg_uuid: bytes, capcode: int, frequency: float,
                          power: int, mail_drop: int, message: bytes) -> bytes:
     payload = bytearray()
-    payload += struct.pack('<I', capcode)       # little-endian uint32
+    payload += struct.pack('<Q', capcode)       # little-endian uint64
     payload += struct.pack('<f', frequency)     # IEEE 754 float, little-endian
     payload += struct.pack('b', power)          # signed int8
     payload += struct.pack('B', mail_drop)      # uint8

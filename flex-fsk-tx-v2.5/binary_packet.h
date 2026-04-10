@@ -53,7 +53,7 @@ typedef struct __attribute__((packed)) {
 
 // Protocol limits
 #define MAX_MESSAGE_IN_PROTOCOL 255      // msg_len is uint8_t (1 byte)
-#define CMD_SEND_FLEX_ARGS_SIZE 11       // capcode(4) + freq(4) + power(1) + mail(1) + len(1)
+#define CMD_SEND_FLEX_ARGS_SIZE 15       // capcode(8) + freq(4) + power(1) + mail(1) + len(1)
 
 // =============================================================================
 // PACKET TYPES
@@ -172,12 +172,12 @@ static_assert(sizeof(binary_packet_t) == PACKET_FIXED_SIZE,
 // =============================================================================
 
 // CMD_SEND_FLEX payload layout (within packet.payload[480])
-// [0-3]   capcode (4 bytes, little-endian)
-// [4-7]   frequency (4 bytes, IEEE 754 float)
-// [8]     tx_power (1 byte, signed)
-// [9]     mail_drop (1 byte, 0=false 1=true)
-// [10]    msg_len (1 byte, 1-255)
-// [11-XX] message (0-255 bytes, actual length in msg_len)
+// [0-7]   capcode (8 bytes, little-endian, uint64_t)
+// [8-11]  frequency (4 bytes, IEEE 754 float)
+// [12]    tx_power (1 byte, signed)
+// [13]    mail_drop (1 byte, 0=false 1=true)
+// [14]    msg_len (1 byte, 1-255)
+// [15-XX] message (0-255 bytes, actual length in msg_len)
 //
 // Note: Message can be up to 255 bytes in protocol,
 //       but FLEX encoding limits to 248 bytes (firmware truncates if needed)
@@ -226,7 +226,7 @@ typedef struct __attribute__((packed)) {
  * @return          Total packet length (including CRC)
  */
 size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
-                           uint32_t capcode, float frequency, int8_t tx_power,
+                           uint64_t capcode, float frequency, int8_t tx_power,
                            uint8_t mail_drop, const char *message, uint8_t msg_len);
 
 /**

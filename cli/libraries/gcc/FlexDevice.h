@@ -91,13 +91,13 @@
 #define FLEX_TS_DST_ACTIVE  0x08
 
 // CMD_SEND_FLEX payload layout:
-// [0-3]  capcode   (4 bytes, little-endian uint32)
-// [4-7]  frequency (4 bytes, IEEE 754 float, little-endian)
-// [8]    tx_power  (1 byte, int8)
-// [9]    mail_drop (1 byte, 0/1)
-// [10]   msg_len   (1 byte)
-// [11+]  message   (msg_len bytes)
-#define FLEX_CMD_SEND_ARGS_SIZE 11
+// [0-7]   capcode   (8 bytes, little-endian uint64)
+// [8-11]  frequency (4 bytes, IEEE 754 float, little-endian)
+// [12]    tx_power  (1 byte, int8)
+// [13]    mail_drop (1 byte, 0/1)
+// [14]    msg_len   (1 byte)
+// [15+]   message   (msg_len bytes)
+#define FLEX_CMD_SEND_ARGS_SIZE 15
 
 // =============================================================================
 // PUBLIC TYPES
@@ -426,12 +426,12 @@ static inline void _flex_build_cmd_send_flex(uint8_t raw[FLEX_PACKET_SIZE],
     memcpy(raw + 20, &plen_be, 2);
 
     // payload starts at offset 22
-    memcpy(raw + 22, &capcode,   4);  // little-endian uint32 as-is
-    memcpy(raw + 26, &frequency, 4);  // IEEE 754 float as-is (little-endian host)
-    raw[30] = (uint8_t)power;
-    raw[31] = mail_drop;
-    raw[32] = msg_len;
-    memcpy(raw + 33, message, msg_len);
+    memcpy(raw + 22, &capcode,   8);  // little-endian uint64 as-is
+    memcpy(raw + 30, &frequency, 4);  // IEEE 754 float as-is (little-endian host)
+    raw[34] = (uint8_t)power;
+    raw[35] = mail_drop;
+    raw[36] = msg_len;
+    memcpy(raw + 37, message, msg_len);
 
     _flex_populate_ts(raw);
 
@@ -579,7 +579,7 @@ static inline int _flex_recv_packet(FlexDevice *dev, flex_packet_t *pkt, int tim
  *   0  on STATUS_ACCEPTED
  *  -1  on error / NACK / timeout
  */
-static inline int flex_send_msg(FlexDevice *dev, uint32_t capcode, float frequency,
+static inline int flex_send_msg(FlexDevice *dev, uint64_t capcode, float frequency,
                                  int8_t power, uint8_t mail_drop, const char *message,
                                  char *uuid_out) {
     uint8_t uuid[16];
@@ -630,7 +630,7 @@ static inline int flex_send_msg(FlexDevice *dev, uint32_t capcode, float frequen
  *   0  on TX_DONE SUCCESS
  *  -1  on error / TX_FAILED / timeout
  */
-static inline int flex_send_msg_wait(FlexDevice *dev, uint32_t capcode, float frequency,
+static inline int flex_send_msg_wait(FlexDevice *dev, uint64_t capcode, float frequency,
                                       int8_t power, uint8_t mail_drop, const char *message,
                                       char *uuid_out, int wait_timeout_sec) {
     uint8_t uuid[16];

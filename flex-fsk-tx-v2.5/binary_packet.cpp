@@ -41,7 +41,7 @@ static void populate_packet_timestamp(binary_packet_t *pkt) {
 // =============================================================================
 
 size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
-                           uint32_t capcode, float frequency, int8_t tx_power,
+                           uint64_t capcode, float frequency, int8_t tx_power,
                            uint8_t mail_drop, const char *message, uint8_t msg_len) {
     if (pkt == nullptr || uuid == nullptr || message == nullptr) {
         return 0;
@@ -60,12 +60,12 @@ size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(CMD_SEND_FLEX_ARGS_SIZE + msg_len);
 
-    memcpy(&pkt->payload[0], &capcode, 4);
-    memcpy(&pkt->payload[4], &frequency, 4);
-    pkt->payload[8] = (uint8_t)tx_power;
-    pkt->payload[9] = mail_drop;
-    pkt->payload[10] = msg_len;
-    memcpy(&pkt->payload[11], message, msg_len);
+    memcpy(&pkt->payload[0], &capcode, 8);
+    memcpy(&pkt->payload[8], &frequency, 4);
+    pkt->payload[12] = (uint8_t)tx_power;
+    pkt->payload[13] = mail_drop;
+    pkt->payload[14] = msg_len;
+    memcpy(&pkt->payload[15], message, msg_len);
 
     // Populate timestamp
     populate_packet_timestamp(pkt);

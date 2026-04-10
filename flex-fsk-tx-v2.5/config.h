@@ -10,7 +10,7 @@
 
 #include <Arduino.h>
 
-#define FIRMWARE_VERSION "v2.5.4"
+#define FIRMWARE_VERSION "v2.5.5"
 
 // =============================================================================
 // BOARD SELECTION

@@ -35,15 +35,15 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
 
     uint8_t *payload = pkt->payload;
 
-    uint32_t capcode;
-    memcpy(&capcode, &payload[0], 4);
+    uint64_t capcode;
+    memcpy(&capcode, &payload[0], 8);
 
     float frequency;
-    memcpy(&frequency, &payload[4], 4);
+    memcpy(&frequency, &payload[8], 4);
 
-    int8_t tx_power = (int8_t)payload[8];
-    uint8_t mail_drop = payload[9];
-    uint8_t msg_len = payload[10];
+    int8_t tx_power = (int8_t)payload[12];
+    uint8_t mail_drop = payload[13];
+    uint8_t msg_len = payload[14];
 
     if (msg_len < 1 || msg_len > MAX_MESSAGE_IN_PROTOCOL) {
         char uuid_str[37];
@@ -55,7 +55,7 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
     }
 
     char safe_message[MAX_MESSAGE_IN_PROTOCOL + 1];
-    memcpy(safe_message, &payload[11], msg_len);
+    memcpy(safe_message, &payload[15], msg_len);
     safe_message[msg_len] = '\0';
 
     if (msg_len > MAX_FLEX_MESSAGE_LENGTH) {
@@ -72,8 +72,8 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
 
     char uuid_str[37];
     uuid_to_string(pkt->uuid, uuid_str);
-    logMessagef("BINARY: CMD_SEND_FLEX uuid=%s capcode=%lu freq=%.4f power=%d mail=%d len=%d",
-                uuid_str, (unsigned long)capcode, frequency, tx_power, mail_drop,
+    logMessagef("BINARY: CMD_SEND_FLEX uuid=%s capcode=%llu freq=%.4f power=%d mail=%d len=%d",
+                uuid_str, (unsigned long long)capcode, frequency, tx_power, mail_drop,
                 (int)strlen(safe_message));
 
     if (!validate_flex_capcode(capcode)) {

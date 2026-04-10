@@ -1,9 +1,15 @@
 /*
  * ============================================================================
- * FLEX Paging Message Transmitter - v2.5.4
+ * FLEX Paging Message Transmitter - v2.5.5
  * ============================================================================
  *
  * UART/Serial Dual-Mode Interface: AT Commands + Binary Protocol
+ *
+ * CHANGELOG v2.5.5 (2026-04-09):
+ * - Fixed capcode field size from 4 bytes to 8 bytes (uint32_t → uint64_t)
+ * - Binary protocol now supports full FLEX capcode range (up to 4,297,068,542)
+ * - Updated CMD_SEND_FLEX payload offsets (frequency: 8-11, power: 12, etc.)
+ * - Breaking change: clients must update to send 8-byte capcodes
  *
  * CHANGELOG v2.5.4 (2026-04-05):
  * - Added AT+CCLK command for manual clock setting

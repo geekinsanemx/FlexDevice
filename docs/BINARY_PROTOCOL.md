@@ -208,18 +208,18 @@ typedef struct {
 **Payload** (variable, max 480 bytes):
 ```c
 typedef struct {
-    uint32_t capcode;         // FLEX capcode (7-digit decimal)
+    uint64_t capcode;         // FLEX capcode (up to 10-digit decimal)
     uint8_t message_len;      // Message text length
-    char message[475];        // Message text (UTF-8, max 248 chars)
+    char message[471];        // Message text (UTF-8, max 248 chars)
 } cmd_send_msg_payload_t;
 ```
 **Wire format**:
 ```
-[0-3]    uint32_t  capcode (little-endian)
-[4]      uint8_t   message_len
-[5-479]  char[]    message (message_len bytes, UTF-8)
+[0-7]    uint64_t  capcode (little-endian)
+[8]      uint8_t   message_len
+[9-479]  char[]    message (message_len bytes, UTF-8)
 ```
-**Note**: Device performs FLEX encoding internally. Max message length: 248 characters (truncated with "..." if longer).
+**Note**: Device performs FLEX encoding internally. Max message length: 248 characters (truncated with "..." if longer). Supports full FLEX capcode range up to 4,297,068,542.
 
 ### CMD_GET_STATUS (0x06)
 **Payload**: Empty (0 bytes)
