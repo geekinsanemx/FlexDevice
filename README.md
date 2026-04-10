@@ -1,4 +1,4 @@
-# FLEX-FSK-TX v2.5.4
+# FlexDevice v2.5.4
 
 **Dual-Mode UART/Serial Firmware: AT Commands + Binary Protocol with Time Synchronization**
 
