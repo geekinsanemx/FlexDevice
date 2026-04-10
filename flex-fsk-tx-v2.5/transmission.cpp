@@ -52,8 +52,8 @@ void transmission_task(void* parameter) {
 
             char uuid_str[37];
             uuid_to_string(msg_uuid, uuid_str);
-            logMessagef("TRANSMISSION: Processing message (uuid=%s, capcode=%lu)",
-                       uuid_str, (unsigned long)msg->capcode);
+            logMessagef("TRANSMISSION: Processing message (uuid=%s, capcode=%llu)",
+                       uuid_str, (unsigned long long)msg->capcode);
 
             current_tx_frequency = msg->frequency;
             current_tx_power = msg->power;

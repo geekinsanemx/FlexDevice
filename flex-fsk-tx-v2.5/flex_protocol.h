@@ -1,7 +1,8 @@
 /*
- * FLEX Paging Message Transmitter - v2.5.2
+ * FLEX Paging Message Transmitter - v2.5.5
  * FLEX Protocol Module
  *
+ * v2.5.5 - Fix capcode type in QueuedMessage struct and queue functions (uint32_t → uint64_t)
  * FLEX encoding, EMR, and message queue
  */
 
@@ -16,7 +17,7 @@
 // =============================================================================
 struct QueuedMessage {
     uint8_t uuid[16];
-    uint32_t capcode;
+    uint64_t capcode;
     float frequency;
     int power;
     bool mail_drop;
@@ -60,9 +61,9 @@ bool flex_encode_and_store(uint64_t capcode, const char *message, bool mail_drop
 void queue_init();
 bool queue_is_empty();
 bool queue_is_full();
-bool queue_add_message(uint32_t capcode, float frequency, int power,
+bool queue_add_message(uint64_t capcode, float frequency, int power,
                        bool mail_drop, const char* message);
-bool queue_add_message_with_uuid(const uint8_t uuid[16], uint32_t capcode,
+bool queue_add_message_with_uuid(const uint8_t uuid[16], uint64_t capcode,
                                   float frequency, int power,
                                   bool mail_drop, const char* message);
 QueuedMessage* queue_get_next_message();

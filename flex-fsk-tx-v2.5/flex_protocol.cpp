@@ -1,6 +1,8 @@
 /*
- * FLEX Paging Message Transmitter - v2.5.2
+ * FLEX Paging Message Transmitter - v2.5.5
  * FLEX Protocol Implementation
+ *
+ * v2.5.5 - Fix capcode type in queue functions (uint32_t → uint64_t)
  */
 
 #include "flex_protocol.h"
@@ -61,7 +63,7 @@ bool queue_is_full() {
     return full;
 }
 
-bool queue_add_message_with_uuid(const uint8_t uuid[16], uint32_t capcode,
+bool queue_add_message_with_uuid(const uint8_t uuid[16], uint64_t capcode,
                                   float frequency, int power,
                                   bool mail_drop, const char* message) {
     if (queue_is_full()) {
@@ -86,12 +88,12 @@ bool queue_add_message_with_uuid(const uint8_t uuid[16], uint32_t capcode,
 
     char uuid_str[37];
     uuid_to_string(uuid, uuid_str);
-    logMessagef("QUEUE: Added message (uuid=%s, count=%d, capcode=%lu)",
-                uuid_str, queue_count, (unsigned long)capcode);
+    logMessagef("QUEUE: Added message (uuid=%s, count=%d, capcode=%llu)",
+                uuid_str, queue_count, (unsigned long long)capcode);
     return true;
 }
 
-bool queue_add_message(uint32_t capcode, float frequency, int power,
+bool queue_add_message(uint64_t capcode, float frequency, int power,
                        bool mail_drop, const char* message) {
     uint8_t at_uuid[16];
     generate_uuid_v4(at_uuid);
