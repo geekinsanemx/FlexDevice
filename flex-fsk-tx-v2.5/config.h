@@ -64,7 +64,7 @@
 #define FLEX_CAPCODE_MIN_2 1998849
 #define FLEX_CAPCODE_MAX_2 2031614
 #define FLEX_CAPCODE_MIN_3 2101249
-#define FLEX_CAPCODE_MAX_3 4291000000
+#define FLEX_CAPCODE_MAX_3 4297068542
 
 // =============================================================================
 // EMR (Emergency Message Resynchronization)
