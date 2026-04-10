@@ -411,7 +411,7 @@ static inline void _flex_populate_ts(uint8_t *raw) {
 
 static inline void _flex_build_cmd_send_flex(uint8_t raw[FLEX_PACKET_SIZE],
                                               uint8_t seq, const uint8_t uuid[16],
-                                              uint32_t capcode, float frequency,
+                                              uint64_t capcode, float frequency,
                                               int8_t power, uint8_t mail_drop,
                                               const char *message, uint8_t msg_len) {
     memset(raw, 0, FLEX_PACKET_SIZE);

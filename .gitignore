@@ -40,6 +40,16 @@ build/
 *.out
 *.app
 
+# Client binaries
+cli/flex-cli
+cli/libraries/gcc/example/example_gcc
+cli/libflex_binary
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
 # debug information files
 *.dwo
 *.bkp*
