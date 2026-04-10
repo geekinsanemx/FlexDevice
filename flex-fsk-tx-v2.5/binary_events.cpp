@@ -10,6 +10,9 @@
 #include "crc16.h"
 #include "logging.h"
 
+// Serial mutex (extern from logging.h)
+extern SemaphoreHandle_t serial_mutex;
+
 bool binary_protocol_active = false;
 uint8_t binary_event_seq = 0;
 
@@ -26,8 +29,12 @@ static void send_packet_via_serial(const binary_packet_t *pkt) {
         return;
     }
 
-    Serial.write(cobs_buffer, cobs_len);
-    Serial.flush();
+    if (xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE) {
+        Serial.flush();
+        Serial.write(cobs_buffer, cobs_len);
+        Serial.flush();
+        xSemaphoreGive(serial_mutex);
+    }
 }
 
 void send_evt_tx_queued(const uint8_t uuid[16], uint8_t pos) {
@@ -38,10 +45,6 @@ void send_evt_tx_queued(const uint8_t uuid[16], uint8_t pos) {
     binary_packet_t pkt;
     build_evt_tx_queued(&pkt, binary_event_seq++, uuid, pos);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: EVT_TX_QUEUED uuid=%s pos=%d", uuid_str, pos);
 }
 
 void send_evt_tx_start(const uint8_t uuid[16]) {
@@ -52,10 +55,6 @@ void send_evt_tx_start(const uint8_t uuid[16]) {
     binary_packet_t pkt;
     build_evt_tx_start(&pkt, binary_event_seq++, uuid);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: EVT_TX_START uuid=%s", uuid_str);
 }
 
 void send_evt_tx_done(const uint8_t uuid[16], uint8_t result) {
@@ -66,10 +65,6 @@ void send_evt_tx_done(const uint8_t uuid[16], uint8_t result) {
     binary_packet_t pkt;
     build_evt_tx_done(&pkt, binary_event_seq++, uuid, result);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: EVT_TX_DONE uuid=%s result=%d", uuid_str, result);
 }
 
 void send_evt_tx_failed(const uint8_t uuid[16], uint8_t error) {
@@ -80,10 +75,6 @@ void send_evt_tx_failed(const uint8_t uuid[16], uint8_t error) {
     binary_packet_t pkt;
     build_evt_tx_failed(&pkt, binary_event_seq++, uuid, error);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: EVT_TX_FAILED uuid=%s error=%d", uuid_str, error);
 }
 
 void send_evt_boot() {
@@ -105,7 +96,6 @@ void send_evt_boot() {
     pkt.crc16 = crc;
 
     send_packet_via_serial(&pkt);
-    logMessage("BINARY: EVT_BOOT sent");
 }
 
 void send_evt_battery_low(uint8_t battery_pct) {
@@ -128,7 +118,6 @@ void send_evt_battery_low(uint8_t battery_pct) {
     pkt.crc16 = crc;
 
     send_packet_via_serial(&pkt);
-    logMessagef("BINARY: EVT_BATTERY_LOW pct=%d", battery_pct);
 }
 
 void send_evt_power_disconnected() {
@@ -150,7 +139,6 @@ void send_evt_power_disconnected() {
     pkt.crc16 = crc;
 
     send_packet_via_serial(&pkt);
-    logMessage("BINARY: EVT_POWER_DISCONNECTED sent");
 }
 
 void send_binary_response_ack(uint8_t seq, const uint8_t uuid[16], uint8_t status) {
@@ -161,10 +149,6 @@ void send_binary_response_ack(uint8_t seq, const uint8_t uuid[16], uint8_t statu
     binary_packet_t pkt;
     build_rsp_ack(&pkt, seq, uuid, status);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: RSP_ACK seq=%d uuid=%s status=%d", seq, uuid_str, status);
 }
 
 void send_binary_response_nack(uint8_t seq, const uint8_t uuid[16], uint8_t status) {
@@ -175,10 +159,6 @@ void send_binary_response_nack(uint8_t seq, const uint8_t uuid[16], uint8_t stat
     binary_packet_t pkt;
     build_rsp_nack(&pkt, seq, uuid, status);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: RSP_NACK seq=%d uuid=%s status=%d", seq, uuid_str, status);
 }
 
 void send_binary_response_pong(uint8_t seq, const uint8_t uuid[16]) {
@@ -189,10 +169,6 @@ void send_binary_response_pong(uint8_t seq, const uint8_t uuid[16]) {
     binary_packet_t pkt;
     build_rsp_pong(&pkt, seq, uuid);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: RSP_PONG seq=%d uuid=%s", seq, uuid_str);
 }
 
 void send_binary_response_status(uint8_t seq, const uint8_t uuid[16],
@@ -214,9 +190,4 @@ void send_binary_response_status(uint8_t seq, const uint8_t uuid[16],
     binary_packet_t pkt;
     build_rsp_status(&pkt, seq, uuid, &status);
     send_packet_via_serial(&pkt);
-
-    char uuid_str[37];
-    uuid_to_string(uuid, uuid_str);
-    logMessagef("BINARY: RSP_STATUS seq=%d uuid=%s state=%d queue=%d",
-                seq, uuid_str, device_state, queue_count);
 }

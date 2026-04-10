@@ -342,8 +342,7 @@ static inline int _flex_read_frame(FlexDevice *dev, uint8_t *buf, size_t max_len
     uint8_t byte;
     size_t  pos = 0;
     char    ascii_line[512];
-    size_t  ascii_pos = 0;
-    bool    in_binary = false;
+    bool    ascii_candidate = true;
 
     struct timeval start, now;
     gettimeofday(&start, NULL);
@@ -361,22 +360,28 @@ static inline int _flex_read_frame(FlexDevice *dev, uint8_t *buf, size_t max_len
         }
         if (n == 0) { usleep(1000); continue; }
 
-        if (!in_binary) {
-            if (byte == '\n') {
-                ascii_line[ascii_pos] = '\0';
-                if (ascii_pos > 0) printf("DEVICE: %s\n", ascii_line);
-                ascii_pos = 0;
-                continue;
-            }
-            if (byte == '\r') continue;
-            if (byte >= 0x20 && byte <= 0x7E) {
-                if (ascii_pos < sizeof(ascii_line) - 1) ascii_line[ascii_pos++] = byte;
-                continue;
-            }
-            in_binary = true;
-        }
+        if (ascii_candidate && byte == '\r') continue;
 
         if (pos < max_len) buf[pos++] = byte;
+
+        if (ascii_candidate) {
+            if (byte == '\n') {
+                size_t line_len = pos - 1;
+                if (line_len > 0) {
+                    size_t copy = (line_len < sizeof(ascii_line) - 1) ? line_len : sizeof(ascii_line) - 1;
+                    memcpy(ascii_line, buf, copy);
+                    ascii_line[copy] = '\0';
+                    printf("DEVICE: %s\n", ascii_line);
+                }
+                pos = 0;
+                continue;
+            }
+            if (byte < 0x20 || byte > 0x7E) {
+                ascii_candidate = false;
+            } else {
+                continue;
+            }
+        }
 
         if (byte == 0x00) {
             if (dev->verbose) {

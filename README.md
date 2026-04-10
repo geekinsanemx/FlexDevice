@@ -560,7 +560,15 @@ flex-fsk-tx-v2.5/
 
 ## Version History
 
-### v2.5.5 (2026-04-09) - Current
+### v2.5.6 (2026-04-10) - Current
+- Fixed Serial TX buffer overflow causing binary packet truncation
+- Increased TX buffer from 256 to 1024 bytes to handle 514-byte COBS frames
+- Removed ASCII logs from binary event functions to prevent corruption
+- Added Serial.flush() before binary packet writes
+- Fixed `-w` flag: clients now properly receive TX_DONE events without timeout
+- Improved binary protocol reliability for event notifications
+
+### v2.5.5 (2026-04-09)
 - **BREAKING CHANGE**: Fixed capcode field size from 4 bytes to 8 bytes (uint32_t → uint64_t)
 - Binary protocol now supports full FLEX capcode range (up to 4,297,068,542)
 - Updated CMD_SEND_FLEX payload structure with new offsets

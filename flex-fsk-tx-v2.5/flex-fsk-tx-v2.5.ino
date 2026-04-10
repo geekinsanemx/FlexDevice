@@ -1,9 +1,16 @@
 /*
  * ============================================================================
- * FLEX Paging Message Transmitter - v2.5.5
+ * FLEX Paging Message Transmitter - v2.5.6
  * ============================================================================
  *
  * UART/Serial Dual-Mode Interface: AT Commands + Binary Protocol
+ *
+ * CHANGELOG v2.5.6 (2026-04-10):
+ * - Fixed Serial TX buffer overflow causing packet truncation
+ * - Increased TX buffer from 256 to 1024 bytes for COBS frames (514 bytes)
+ * - Removed ASCII logs from binary event functions to prevent corruption
+ * - Added Serial.flush() before binary packet writes
+ * - Fixed -w flag: clients now properly receive TX_DONE events
  *
  * CHANGELOG v2.5.5 (2026-04-09):
  * - Fixed capcode field size from 4 bytes to 8 bytes (uint32_t → uint64_t)
@@ -97,6 +104,11 @@
 #include "utils.h"
 
 // =============================================================================
+// SERIAL MUTEX (prevents race between ASCII logs and binary packets)
+// =============================================================================
+SemaphoreHandle_t serial_mutex = NULL;
+
+// =============================================================================
 // BATTERY MONITORING STATE
 // =============================================================================
 static unsigned long last_battery_check = 0;
@@ -187,9 +199,14 @@ void handle_factory_reset() {
 // ARDUINO SETUP
 // =============================================================================
 void setup() {
-    // Increase RX buffer to handle full COBS packets (512-516 bytes)
-    // Default 256 bytes is insufficient for binary protocol packets
+    // Create Serial mutex BEFORE any Serial operations
+    serial_mutex = xSemaphoreCreateMutex();
+    if (serial_mutex == NULL) {
+        while (true) delay(1000);
+    }
+
     Serial.setRxBufferSize(1024);
+    Serial.setTxBufferSize(1024);
     Serial.begin(SERIAL_BAUD);
 
     // Initialize WiFi stack but do NOT connect
@@ -263,9 +280,12 @@ void setup() {
     reset_oled_timeout();
 
     // Send ready message
-    Serial.print("AT READY\r\n");
-    Serial.print("FLEX-FSK-TX " FIRMWARE_VERSION "\r\n");
-    Serial.flush();
+    if (xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE) {
+        Serial.print("AT READY\r\n");
+        Serial.print("FLEX-FSK-TX " FIRMWARE_VERSION "\r\n");
+        Serial.flush();
+        xSemaphoreGive(serial_mutex);
+    }
 
     logMessage("SYSTEM: Boot complete, ready for commands");
 }

@@ -60,22 +60,22 @@ void transmission_task(void* parameter) {
             current_tx_capcode = msg->capcode;
 
             if (radio_set_frequency(msg->frequency) != RADIOLIB_ERR_NONE) {
-                logMessage("TRANSMISSION: Failed to set frequency");
                 send_evt_tx_failed(msg_uuid, RESULT_RADIO_ERROR);
+                logMessage("TRANSMISSION: Failed to set frequency");
                 queue_remove_message();
                 continue;
             }
 
             if (radio_set_power(msg->power) != RADIOLIB_ERR_NONE) {
-                logMessage("TRANSMISSION: Failed to set power");
                 send_evt_tx_failed(msg_uuid, RESULT_RADIO_ERROR);
+                logMessage("TRANSMISSION: Failed to set power");
                 queue_remove_message();
                 continue;
             }
 
             if (!flex_encode_and_store(msg->capcode, msg->message, msg->mail_drop)) {
-                logMessage("TRANSMISSION: Encoding failed");
                 send_evt_tx_failed(msg_uuid, RESULT_ENCODING_ERROR);
+                logMessage("TRANSMISSION: Encoding failed");
                 queue_remove_message();
                 continue;
             }
@@ -109,14 +109,12 @@ void transmission_task(void* parameter) {
             }
 
             if (radio_start_transmit_status == RADIOLIB_ERR_NONE) {
+                send_evt_tx_done(msg_uuid, RESULT_SUCCESS);
                 logMessagef("TRANSMISSION: Success (uuid=%s, capcode=%llu, freq=%.4f MHz, power=%.1f dBm)",
                           uuid_str, current_tx_capcode, current_tx_frequency, current_tx_power);
-
-                send_evt_tx_done(msg_uuid, RESULT_SUCCESS);
             } else {
-                logMessagef("TRANSMISSION: Failed (uuid=%s, error=%d)", uuid_str, radio_start_transmit_status);
-
                 send_evt_tx_failed(msg_uuid, RESULT_RADIO_ERROR);
+                logMessagef("TRANSMISSION: Failed (uuid=%s, error=%d)", uuid_str, radio_start_transmit_status);
             }
 
             radio_standby();

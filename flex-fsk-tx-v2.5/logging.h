@@ -10,6 +10,9 @@
 
 #include <Arduino.h>
 
+// Serial mutex (defined in main .ino file)
+extern SemaphoreHandle_t serial_mutex;
+
 // =============================================================================
 // FUNCTION PROTOTYPES
 // =============================================================================
