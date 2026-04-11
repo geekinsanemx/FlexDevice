@@ -20,7 +20,7 @@
 #include <getopt.h>
 #include "libflex_binary/FlexDevice.h"
 
-#define CURRENT_VERSION "v2.5.5"
+#define CURRENT_VERSION "v2.5.6"
 
 static void print_usage(const char *prog) {
     printf("Usage: %s [OPTIONS] CAPCODE MESSAGE\n\n", prog);
@@ -35,6 +35,7 @@ static void print_usage(const char *prog) {
     printf("  -w           Wait for TX_DONE event (up to 30s)\n");
     printf("  -s           Query device status before sending\n");
     printf("  -P           Ping device before sending\n");
+    printf("  -R           Toggle DTR/RTS before sending (UART resync)\n");
     printf("  -h           Show this help\n\n");
     printf("Examples:\n");
     printf("  %s 1234567 \"Hello World\"\n", prog);
@@ -52,9 +53,10 @@ int main(int argc, char *argv[]) {
     int  wait_for_done   = 0;
     int  do_status       = 0;
     int  do_ping         = 0;
+    int  reset_lines     = 0;
     int  opt;
 
-    while ((opt = getopt(argc, argv, "d:b:f:p:mvwsPh")) != -1) {
+    while ((opt = getopt(argc, argv, "d:b:f:p:mvwsPRh")) != -1) {
         switch (opt) {
             case 'd': device    = optarg;         break;
             case 'b': baudrate  = atoi(optarg);   break;
@@ -65,6 +67,7 @@ int main(int argc, char *argv[]) {
             case 'w': wait_for_done = 1;           break;
             case 's': do_status = 1;               break;
             case 'P': do_ping   = 1;               break;
+            case 'R': reset_lines = 1;             break;
             case 'h': print_usage(argv[0]); return 0;
             default:  print_usage(argv[0]); return 1;
         }
@@ -92,6 +95,11 @@ int main(int argc, char *argv[]) {
     FlexDevice dev;
     if (flex_open(&dev, device, baudrate) < 0) return 1;
     dev.verbose = verbose;
+
+    if (reset_lines) {
+        flex_reset_lines(&dev, 100);
+        if (verbose) printf("UART control lines toggled (DTR low/high, RTS pulse)\n");
+    }
 
     printf("Connected to %s @ %d baud\n", device, baudrate);
 

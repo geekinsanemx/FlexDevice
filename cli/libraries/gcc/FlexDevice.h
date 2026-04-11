@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 
 // =============================================================================
 // PROTOCOL CONSTANTS  (must match binary_packet.h in firmware)
@@ -491,12 +492,20 @@ static inline int _flex_send_raw(FlexDevice *dev, const uint8_t raw[FLEX_PACKET_
         printf("\n");
     }
 
-    ssize_t written = write(dev->fd, cobs, cobs_len);
-    if (written < 0 || (size_t)written != cobs_len) {
-        fprintf(stderr, "flex: write error: %s\n", strerror(errno));
-        return -1;
+    size_t total_written = 0;
+    while (total_written < cobs_len) {
+        ssize_t w = write(dev->fd, cobs + total_written, cobs_len - total_written);
+        if (w < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(1000);
+                continue;
+            }
+            fprintf(stderr, "flex: write error: %s\n", strerror(errno));
+            return -1;
+        }
+        total_written += (size_t)w;
     }
-    fsync(dev->fd);
+    tcdrain(dev->fd);
     return 0;
 }
 
@@ -514,6 +523,15 @@ static inline int _flex_recv_packet(FlexDevice *dev, flex_packet_t *pkt, int tim
     if (decoded_len != FLEX_PACKET_SIZE) {
         fprintf(stderr, "flex: invalid decoded size %zu (expected %d)\n",
                 decoded_len, FLEX_PACKET_SIZE);
+        fprintf(stderr, "flex: raw frame len=%d head=", frame_len);
+        size_t head_len = frame_len < 16 ? (size_t)frame_len : 16;
+        for (size_t i = 0; i < head_len; i++) fprintf(stderr, "%02X ", frame[i]);
+        if (frame_len > 16) {
+            fprintf(stderr, "... tail=");
+            size_t tail_start = (size_t)frame_len > 16 ? (size_t)frame_len - 16 : 0;
+            for (size_t i = tail_start; i < (size_t)frame_len; i++) fprintf(stderr, "%02X ", frame[i]);
+        }
+        fprintf(stderr, "\n");
         return -1;
     }
 
@@ -626,6 +644,19 @@ static inline int flex_send_msg(FlexDevice *dev, uint64_t capcode, float frequen
     fprintf(stderr, "flex: unexpected response type=0x%02X opcode=0x%02X\n",
             rsp.pkt_type, rsp.opcode);
     return -1;
+}
+
+static inline void flex_reset_lines(FlexDevice *dev, int delay_ms) {
+    if (dev->fd < 0) return;
+    int status;
+    if (ioctl(dev->fd, TIOCMGET, &status) == -1) return;
+    status &= ~(TIOCM_DTR | TIOCM_RTS);
+    ioctl(dev->fd, TIOCMSET, &status);
+    if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
+    status |= TIOCM_DTR;
+    status &= ~TIOCM_RTS;
+    ioctl(dev->fd, TIOCMSET, &status);
+    if (delay_ms > 0) usleep((useconds_t)delay_ms * 1000);
 }
 
 /*

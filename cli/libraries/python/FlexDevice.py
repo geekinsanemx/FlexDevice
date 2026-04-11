@@ -22,7 +22,7 @@ import time
 import serial
 from datetime import datetime, timezone
 
-__version__ = '2.5.0'
+__version__ = '2.5.6'
 
 # =============================================================================
 # PROTOCOL CONSTANTS  (must match binary_packet.h in firmware)

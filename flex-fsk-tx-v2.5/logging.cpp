@@ -8,6 +8,8 @@
 #include <SPIFFS.h>
 #include <time.h>
 
+extern bool binary_protocol_active;
+
 // =============================================================================
 // GLOBAL VARIABLES
 // =============================================================================
@@ -65,9 +67,11 @@ String get_timestamp() {
 void logMessage(const char* message) {
     String timestamped = get_timestamp() + " " + String(message);
 
-    if (xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE) {
-        Serial.println(timestamped);
-        xSemaphoreGive(serial_mutex);
+    if (!binary_protocol_active) {
+        if (xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE) {
+            Serial.println(timestamped);
+            xSemaphoreGive(serial_mutex);
+        }
     }
 
     append_to_log_file(timestamped.c_str());

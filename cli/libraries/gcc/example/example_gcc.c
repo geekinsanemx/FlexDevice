@@ -25,6 +25,7 @@ static void print_usage(const char *prog) {
     printf("  -m           Enable mail drop flag\n");
     printf("  -v           Verbose output\n");
     printf("  -w           Wait for TX_DONE event\n");
+    printf("  -R           Toggle DTR/RTS before sending\n");
     printf("  -h           Show this help\n\n");
     printf("Examples:\n");
     printf("  %s /dev/ttyUSB0 1234567 \"Hello World\"\n", prog);
@@ -38,9 +39,10 @@ int main(int argc, char *argv[]) {
     uint8_t mail_drop     = 0;
     int     verbose       = 0;
     int     wait_for_done = 0;
+    int     reset_lines   = 0;
     int     opt;
 
-    while ((opt = getopt(argc, argv, "b:f:p:mvwh")) != -1) {
+    while ((opt = getopt(argc, argv, "b:f:p:mvwRh")) != -1) {
         switch (opt) {
             case 'b': baudrate  = atoi(optarg);   break;
             case 'f': frequency = atof(optarg);   break;
@@ -48,6 +50,7 @@ int main(int argc, char *argv[]) {
             case 'm': mail_drop = 1;               break;
             case 'v': verbose   = 1;               break;
             case 'w': wait_for_done = 1;           break;
+            case 'R': reset_lines = 1;             break;
             case 'h': print_usage(argv[0]); return 0;
             default:  print_usage(argv[0]); return 1;
         }
@@ -66,6 +69,11 @@ int main(int argc, char *argv[]) {
     FlexDevice dev;
     if (flex_open(&dev, device, baudrate) < 0) return 1;
     dev.verbose = verbose;
+
+    if (reset_lines) {
+        flex_reset_lines(&dev, 100);
+        if (verbose) printf("UART control lines toggled (DTR low/high, RTS pulse)\n");
+    }
 
     printf("Connected to %s @ %d baud\n", device, baudrate);
     printf("Capcode: %llu  Freq: %.4f MHz  Power: %d dBm  Mail drop: %s\n",

@@ -789,6 +789,8 @@ void handle_binary_packet(uint8_t *cobs_data, size_t len) {
         return;
     }
 
+    binary_protocol_active = true;
+
     // Drift check & auto-adjust if timestamp valid
     if (pkt.ts.flags & TS_FLAG_VALID) {
         uint32_t host_timestamp = ntohl_custom(pkt.ts.unix_timestamp);
@@ -821,8 +823,6 @@ void handle_binary_packet(uint8_t *cobs_data, size_t len) {
             logMessagef("CCLK: Drift=%d sec (no auto-adjust)", drift);
         }
     }
-
-    binary_protocol_active = true;
 
     char uuid_str[37];
     uuid_to_string(pkt.uuid, uuid_str);

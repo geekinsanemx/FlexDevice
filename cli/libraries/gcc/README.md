@@ -2,8 +2,8 @@
 
 Single-header C library for FLEX-FSK-TX v2.5 binary protocol over UART.
 
-**Version:** v2.5.5 (compatible with firmware v2.5.5+)
-**Note:** For reliable `-w` (wait for TX_DONE) operation, firmware v2.5.6+ is required.
+**Version:** v2.5.6 (compatible with firmware v2.5.5+)
+**Note:** For reliable `-w` (wait for TX_DONE) operation, firmware v2.5.6+ is recommended.
 
 ## Architecture
 

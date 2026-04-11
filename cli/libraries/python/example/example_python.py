@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 """
 example_python.py - FlexDevice library usage example
 
@@ -9,8 +11,21 @@ Usage:
 
 import sys
 import argparse
-from FlexDevice import (FlexDevice, FlexError, FlexTimeoutError,
-                         FlexNackError, FlexRejectedError, FlexTxFailedError)
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+LIB_ROOT = SCRIPT_DIR.parent
+if str(LIB_ROOT) not in sys.path:
+    sys.path.insert(0, str(LIB_ROOT))
+
+from FlexDevice import (
+    FlexDevice,
+    FlexError,
+    FlexTimeoutError,
+    FlexNackError,
+    FlexRejectedError,
+    FlexTxFailedError,
+)
 
 
 def main():
@@ -30,6 +45,8 @@ def main():
                         help='Wait for TX_DONE event')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Verbose output')
+    parser.add_argument('-R', '--reset-lines', action='store_true',
+                        help='Toggle DTR/RTS before sending (UART resync)')
     args = parser.parse_args()
 
     print(f"Connecting to {args.device} @ {args.baudrate} baud")
@@ -39,6 +56,16 @@ def main():
 
     try:
         with FlexDevice(args.device, baudrate=args.baudrate, verbose=args.verbose) as dev:
+            if args.reset_lines:
+                dev._serial.setDTR(False)  # type: ignore[attr-defined]
+                dev._serial.setRTS(True)   # type: ignore[attr-defined]
+                print("UART control lines toggled (DTR low, RTS high pulse)")
+                import time as _time_module
+
+                _time_module.sleep(0.1)
+                dev._serial.setRTS(False)  # type: ignore[attr-defined]
+                _time_module.sleep(0.1)
+
             if args.wait:
                 uuid = dev.send_message_wait(
                     capcode=args.capcode,

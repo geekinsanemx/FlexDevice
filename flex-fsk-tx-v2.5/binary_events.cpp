@@ -29,9 +29,41 @@ static void send_packet_via_serial(const binary_packet_t *pkt) {
         return;
     }
 
+#ifdef ENABLE_DEBUG
+    if (pkt->type == PKT_TYPE_EVT && (pkt->opcode == EVT_TX_DONE || pkt->opcode == EVT_TX_START)) {
+        char head_hex[64];
+        size_t preview_len = (cobs_len < 8) ? cobs_len : 8;
+        char* cursor = head_hex;
+        for (size_t i = 0; i < preview_len; ++i) {
+            int written = snprintf(cursor, head_hex + sizeof(head_hex) - cursor, "%02X", cobs_buffer[i]);
+            if (written <= 0 || (size_t)written >= (size_t)(head_hex + sizeof(head_hex) - cursor)) {
+                break;
+            }
+            cursor += written;
+            if (i + 1 < preview_len) {
+                *cursor++ = ' ';
+            }
+        }
+        *cursor = '\0';
+        logMessagef("BINARY: EVT opcode=0x%02X seq=%u COBS head[%u]=%s len=%u",
+                    pkt->opcode, pkt->seq, (unsigned)preview_len, head_hex, (unsigned)cobs_len);
+    }
+
+    if (cobs_len < PACKET_FIXED_SIZE) {
+        logMessagef("BINARY: COBS truncated len=%u type=0x%02X opcode=0x%02X seq=%u",
+                    (unsigned)cobs_len, pkt->type, pkt->opcode, pkt->seq);
+    }
+#endif
+
     if (xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE) {
         Serial.flush();
-        Serial.write(cobs_buffer, cobs_len);
+        size_t written = Serial.write(cobs_buffer, cobs_len);
+#ifdef ENABLE_DEBUG
+        if (written != cobs_len) {
+            logMessagef("BINARY: Serial write short (expected=%u wrote=%u type=0x%02X seq=%u)",
+                        (unsigned)cobs_len, (unsigned)written, pkt->type, pkt->seq);
+        }
+#endif
         Serial.flush();
         xSemaphoreGive(serial_mutex);
     }
