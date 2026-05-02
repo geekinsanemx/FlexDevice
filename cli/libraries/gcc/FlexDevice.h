@@ -38,10 +38,10 @@
 // =============================================================================
 
 #define FLEX_PACKET_SIZE      512
-#define FLEX_HEADER_SIZE       22
-#define FLEX_PAYLOAD_SIZE     480
+#define FLEX_HEADER_SIZE       21
+#define FLEX_PAYLOAD_SIZE     481
 #define FLEX_CRC_OFFSET       510
-#define FLEX_TS_OFFSET        502
+#define FLEX_TS_OFFSET        501
 #define FLEX_MAX_MESSAGE      248
 #define FLEX_MAX_MSG_PROTO    255
 
@@ -100,13 +100,13 @@
 // [15+]   message   (msg_len bytes)
 #define FLEX_CMD_SEND_ARGS_SIZE 15
 
+
 // =============================================================================
 // PUBLIC TYPES
 // =============================================================================
 
 typedef struct {
     int      fd;
-    uint8_t  seq;
     int      verbose;
 } FlexDevice;
 
@@ -114,7 +114,6 @@ typedef struct {
     uint8_t  pkt_type;
     uint8_t  opcode;
     uint8_t  flags;
-    uint8_t  seq;
     uint8_t  uuid[16];
     uint16_t payload_len;
     uint8_t  payload[FLEX_PAYLOAD_SIZE];
@@ -267,7 +266,6 @@ static inline uint32_t _flex_ntohl(uint32_t v) { return _flex_htonl(v); }
 
 static inline int flex_open(FlexDevice *dev, const char *device, int baudrate) {
     dev->fd = -1;
-    dev->seq = 1;
     dev->verbose = 0;
 
     int fd = open(device, O_RDWR | O_NOCTTY | O_NONBLOCK);
@@ -418,7 +416,7 @@ static inline void _flex_populate_ts(uint8_t *raw) {
 }
 
 static inline void _flex_build_cmd_send_flex(uint8_t raw[FLEX_PACKET_SIZE],
-                                              uint8_t seq, const uint8_t uuid[16],
+                                              const uint8_t uuid[16],
                                               uint64_t capcode, float frequency,
                                               int8_t power, uint8_t mail_drop,
                                               const char *message, uint8_t msg_len) {
@@ -427,19 +425,18 @@ static inline void _flex_build_cmd_send_flex(uint8_t raw[FLEX_PACKET_SIZE],
     raw[0] = FLEX_PKT_CMD;
     raw[1] = FLEX_CMD_SEND_FLEX;
     raw[2] = FLEX_FLAG_ACK_REQUIRED;
-    raw[3] = seq;
-    memcpy(raw + 4, uuid, 16);
+    memcpy(raw + 3, uuid, 16);
 
     uint16_t plen_be = _flex_htons((uint16_t)(FLEX_CMD_SEND_ARGS_SIZE + msg_len));
-    memcpy(raw + 20, &plen_be, 2);
+    memcpy(raw + 19, &plen_be, 2);
 
-    // payload starts at offset 22
-    memcpy(raw + 22, &capcode,   8);  // little-endian uint64 as-is
-    memcpy(raw + 30, &frequency, 4);  // IEEE 754 float as-is (little-endian host)
-    raw[34] = (uint8_t)power;
-    raw[35] = mail_drop;
-    raw[36] = msg_len;
-    memcpy(raw + 37, message, msg_len);
+    // payload starts at offset 21
+    memcpy(raw + 21, &capcode,   8);  // little-endian uint64 as-is
+    memcpy(raw + 29, &frequency, 4);  // IEEE 754 float as-is (little-endian host)
+    raw[33] = (uint8_t)power;
+    raw[34] = mail_drop;
+    raw[35] = msg_len;
+    memcpy(raw + 36, message, msg_len);
 
     _flex_populate_ts(raw);
 
@@ -448,30 +445,28 @@ static inline void _flex_build_cmd_send_flex(uint8_t raw[FLEX_PACKET_SIZE],
 }
 
 static inline void _flex_build_cmd_ping(uint8_t raw[FLEX_PACKET_SIZE],
-                                         uint8_t seq, const uint8_t uuid[16]) {
+                                         const uint8_t uuid[16]) {
     memset(raw, 0, FLEX_PACKET_SIZE);
     raw[0] = FLEX_PKT_CMD;
     raw[1] = FLEX_CMD_PING;
     raw[2] = FLEX_FLAG_ACK_REQUIRED;
-    raw[3] = seq;
-    memcpy(raw + 4, uuid, 16);
+    memcpy(raw + 3, uuid, 16);
     uint16_t plen_be = _flex_htons(0);
-    memcpy(raw + 20, &plen_be, 2);
+    memcpy(raw + 19, &plen_be, 2);
     _flex_populate_ts(raw);
     uint16_t crc = _flex_crc16(raw, FLEX_CRC_OFFSET);
     memcpy(raw + FLEX_CRC_OFFSET, &crc, 2);
 }
 
 static inline void _flex_build_cmd_get_status(uint8_t raw[FLEX_PACKET_SIZE],
-                                               uint8_t seq, const uint8_t uuid[16]) {
+                                               const uint8_t uuid[16]) {
     memset(raw, 0, FLEX_PACKET_SIZE);
     raw[0] = FLEX_PKT_CMD;
     raw[1] = FLEX_CMD_GET_STATUS;
     raw[2] = FLEX_FLAG_ACK_REQUIRED;
-    raw[3] = seq;
-    memcpy(raw + 4, uuid, 16);
+    memcpy(raw + 3, uuid, 16);
     uint16_t plen_be = _flex_htons(0);
-    memcpy(raw + 20, &plen_be, 2);
+    memcpy(raw + 19, &plen_be, 2);
     _flex_populate_ts(raw);
     uint16_t crc = _flex_crc16(raw, FLEX_CRC_OFFSET);
     memcpy(raw + FLEX_CRC_OFFSET, &crc, 2);
@@ -487,7 +482,7 @@ static inline int _flex_send_raw(FlexDevice *dev, const uint8_t raw[FLEX_PACKET_
 
     if (dev->verbose) {
         char uuid_str[37];
-        _flex_uuid_to_str(raw + 4, uuid_str);
+        _flex_uuid_to_str(raw + 3, uuid_str);  // UUID at raw[3..18]
         printf("TX [uuid=%s, %zu COBS bytes]: ", uuid_str, cobs_len);
         for (size_t i = 0; i < cobs_len && i < 32; i++) printf("%02X ", cobs[i]);
         if (cobs_len > 32) printf("...");
@@ -549,11 +544,10 @@ static inline int _flex_recv_packet(FlexDevice *dev, flex_packet_t *pkt, int tim
     pkt->pkt_type    = decoded[0];
     pkt->opcode      = decoded[1];
     pkt->flags       = decoded[2];
-    pkt->seq         = decoded[3];
-    memcpy(pkt->uuid, decoded + 4, 16);
-    memcpy(&pkt->payload_len, decoded + 20, 2);
+    memcpy(pkt->uuid, decoded + 3, 16);
+    memcpy(&pkt->payload_len, decoded + 19, 2);
     pkt->payload_len = _flex_ntohs(pkt->payload_len);
-    memcpy(pkt->payload, decoded + 22, FLEX_PAYLOAD_SIZE);
+    memcpy(pkt->payload, decoded + 21, FLEX_PAYLOAD_SIZE);
 
     uint32_t ts_be; memcpy(&ts_be, decoded + FLEX_TS_OFFSET,     4);
     uint16_t ms_be; memcpy(&ms_be, decoded + FLEX_TS_OFFSET + 4, 2);
@@ -567,8 +561,8 @@ static inline int _flex_recv_packet(FlexDevice *dev, flex_packet_t *pkt, int tim
     if (dev->verbose) {
         char uuid_str[37];
         _flex_uuid_to_str(pkt->uuid, uuid_str);
-        printf("PARSED: type=0x%02X opcode=0x%02X seq=%d uuid=%s\n",
-               pkt->pkt_type, pkt->opcode, pkt->seq, uuid_str);
+        printf("PARSED: type=0x%02X opcode=0x%02X uuid=%s\n",
+               pkt->pkt_type, pkt->opcode, uuid_str);
         if (pkt->ts_flags & FLEX_TS_VALID) {
             time_t ts = (time_t)pkt->ts_unix;
             char tbuf[64];
@@ -615,7 +609,7 @@ static inline int flex_send_msg(FlexDevice *dev, uint64_t capcode, float frequen
     uint8_t msg_len = (mlen > FLEX_MAX_MSG_PROTO) ? FLEX_MAX_MSG_PROTO : (uint8_t)mlen;
 
     uint8_t raw[FLEX_PACKET_SIZE];
-    _flex_build_cmd_send_flex(raw, dev->seq++, uuid, capcode, frequency,
+    _flex_build_cmd_send_flex(raw, uuid, capcode, frequency,
                               power, mail_drop, message, msg_len);
 
     if (_flex_send_raw(dev, raw) < 0) return -1;
@@ -679,7 +673,7 @@ static inline int flex_send_msg_wait(FlexDevice *dev, uint64_t capcode, float fr
     uint8_t msg_len = (mlen > FLEX_MAX_MSG_PROTO) ? FLEX_MAX_MSG_PROTO : (uint8_t)mlen;
 
     uint8_t raw[FLEX_PACKET_SIZE];
-    _flex_build_cmd_send_flex(raw, dev->seq++, uuid, capcode, frequency,
+    _flex_build_cmd_send_flex(raw, uuid, capcode, frequency,
                               power, mail_drop, message, msg_len);
 
     if (_flex_send_raw(dev, raw) < 0) return -1;
@@ -774,7 +768,7 @@ static inline int flex_ping(FlexDevice *dev) {
     _flex_uuid_v4(uuid);
 
     uint8_t raw[FLEX_PACKET_SIZE];
-    _flex_build_cmd_ping(raw, dev->seq++, uuid);
+    _flex_build_cmd_ping(raw, uuid);
 
     if (_flex_send_raw(dev, raw) < 0) return -1;
 
@@ -804,7 +798,7 @@ static inline int flex_get_status(FlexDevice *dev, uint8_t *device_state,
     _flex_uuid_v4(uuid);
 
     uint8_t raw[FLEX_PACKET_SIZE];
-    _flex_build_cmd_get_status(raw, dev->seq++, uuid);
+    _flex_build_cmd_get_status(raw, uuid);
 
     if (_flex_send_raw(dev, raw) < 0) return -1;
 

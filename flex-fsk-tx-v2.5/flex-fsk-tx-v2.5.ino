@@ -305,6 +305,9 @@ void loop() {
     watchdog_feed();
 
     if (Serial.available()) {
+        // This prevents AT characters from being silently consumed by a timed-out
+        binary_frame_timeout_check();
+
         if (binary_frame_pos > 0) {
             process_binary_frame();
         } else if (device_state == STATE_WAITING_FOR_DATA ||

@@ -125,17 +125,16 @@ Offset    | Size | Field              | Description
 [0]       | 1    | type               | Packet type (CMD/RSP/EVT)
 [1]       | 1    | opcode             | Operation code
 [2]       | 1    | flags              | Control flags
-[3]       | 1    | seq                | Sequence number (0-255, wraps)
-[4-19]    | 16   | uuid               | 128-bit UUID (RFC 4122 v4)
-[20-21]   | 2    | payload_len        | Valid bytes in payload (big-endian)
-[22-501]  | 480  | payload            | Variable payload data
-[502-509] | 8    | timestamp          | Timestamp header (v2.5.3+)
-[510-511] | 2    | crc16              | CRC16-CCITT checksum
+[3-18]    | 16   | uuid               | 128-bit UUID (RFC 4122 v4)
+[19-20]   | 2    | payload_len        | Valid bytes in payload (big-endian)
+[21-501]  | 481  | payload            | Variable payload data
+[501-508] | 8    | timestamp          | Timestamp header (v2.5.3+)
+[509-510] | 2    | crc16              | CRC16-CCITT checksum
 ```
 
 **Design Rationale:**
-- Compact header (22 bytes) for efficient parsing
-- Maximum payload (480 bytes) for message data
+- Compact header (21 bytes) for efficient parsing
+- Maximum payload (481 bytes) for message data
 - Timestamp positioned before CRC for integrity protection
 - CRC at fixed offset 510 validates entire packet
 
@@ -560,7 +559,7 @@ FlexDevice/
 
 ### v2.5.6 (2026-04-10) - Current
 - Fixed Serial TX buffer overflow causing binary packet truncation
-- Increased TX buffer from 256 to 1024 bytes to handle 514-byte COBS frames
+- Increased TX buffer from 256 to 1024 bytes to handle COBS-encoded frames
 - Removed ASCII logs from binary event functions to prevent corruption
 - Added Serial.flush() before binary packet writes
 - Fixed `-w` flag: clients now properly receive TX_DONE events without timeout
@@ -608,15 +607,13 @@ FlexDevice/
 
 ---
 
-## Protocol Roadmap (Future Enhancements)
+## Protocol Hardening (v2.5.7)
 
-Current protocol provides CRC16 validation, fixed 512-byte packets, and COBS framing. Future hardening:
+Protocol provides CRC16 validation, fixed 512-byte packets, COBS framing, plus:
 
-| Enhancement | Benefit |
-|-------------|---------|
-| **Magic byte validation** | Prevents false sync to non-packet data in UART stream |
-| **Sequence window validation** | Detects wrap-around, helps identify dropped frames, supports replay protection |
-| **Frame reception timeout** | Prevents buffer issues on incomplete/malformed frames (e.g., 100ms idle timeout) |
+| Enhancement | Status | Benefit |
+|-------------|--------|---------|
+| **Per-frame reception timeout** (200 ms) | Implemented | Discards stalled partial frames; prevents AT command lockout |
 
 ---
 
@@ -627,7 +624,7 @@ Current protocol provides CRC16 validation, fixed 512-byte packets, and COBS fra
   - Packet structure and field layouts
   - All opcodes, commands, responses, and events
   - Payload structures for each command type
-  - UUID/SEQ semantics and message correlation
+  - UUID semantics and message correlation
   - CRC16-CCITT specification
   - Communication patterns and error handling
 

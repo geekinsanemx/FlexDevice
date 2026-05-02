@@ -28,12 +28,13 @@ __version__ = '2.5.6'
 # PROTOCOL CONSTANTS  (must match binary_packet.h in firmware)
 # =============================================================================
 
-PACKET_FIXED_SIZE    = 512
-PACKET_PAYLOAD_SIZE  = 480
+PACKET_FIXED_SIZE    = 512   # binary_packet_t struct size (unchanged)
+PACKET_PAYLOAD_SIZE  = 481
 PACKET_CRC_OFFSET    = 510
-PACKET_TS_OFFSET     = 502
+PACKET_TS_OFFSET     = 501
 MAX_MESSAGE_PROTO    = 255
 CMD_SEND_ARGS_SIZE   = 15
+
 
 PKT_TYPE_CMD = 0x01
 PKT_TYPE_RSP = 0x02
@@ -202,20 +203,19 @@ def _cobs_decode(data: bytes) -> bytes:
 # PACKET BUILDER
 # =============================================================================
 
-def _build_packet(pkt_type: int, opcode: int, seq: int,
+def _build_packet(pkt_type: int, opcode: int,
                   msg_uuid: bytes, payload: bytes) -> bytes:
     raw = bytearray(PACKET_FIXED_SIZE)
 
     raw[0] = pkt_type
     raw[1] = opcode
     raw[2] = FLAG_ACK_REQUIRED
-    raw[3] = seq & 0xFF
-    raw[4:20] = msg_uuid[:16]
+    raw[3:19] = msg_uuid[:16]
 
-    raw[20:22] = struct.pack('>H', len(payload))
+    raw[19:21] = struct.pack('>H', len(payload))
 
     if payload:
-        raw[22:22 + len(payload)] = payload
+        raw[21:21 + len(payload)] = payload
 
     # Timestamp at offset 502-509 (big-endian per firmware spec)
     now = datetime.now(timezone.utc)
@@ -236,7 +236,7 @@ def _build_packet(pkt_type: int, opcode: int, seq: int,
     return bytes(raw)
 
 
-def _build_cmd_send_flex(seq: int, msg_uuid: bytes, capcode: int, frequency: float,
+def _build_cmd_send_flex(msg_uuid: bytes, capcode: int, frequency: float,
                          power: int, mail_drop: int, message: bytes) -> bytes:
     payload = bytearray()
     payload += struct.pack('<Q', capcode)       # little-endian uint64
@@ -245,15 +245,15 @@ def _build_cmd_send_flex(seq: int, msg_uuid: bytes, capcode: int, frequency: flo
     payload += struct.pack('B', mail_drop)      # uint8
     payload += struct.pack('B', len(message))   # uint8 length
     payload += message
-    return _build_packet(PKT_TYPE_CMD, CMD_SEND_FLEX, seq, msg_uuid, bytes(payload))
+    return _build_packet(PKT_TYPE_CMD, CMD_SEND_FLEX, msg_uuid, bytes(payload))
 
 
-def _build_cmd_ping(seq: int, msg_uuid: bytes) -> bytes:
-    return _build_packet(PKT_TYPE_CMD, CMD_PING, seq, msg_uuid, b'')
+def _build_cmd_ping(msg_uuid: bytes) -> bytes:
+    return _build_packet(PKT_TYPE_CMD, CMD_PING, msg_uuid, b'')
 
 
-def _build_cmd_get_status(seq: int, msg_uuid: bytes) -> bytes:
-    return _build_packet(PKT_TYPE_CMD, CMD_GET_STATUS, seq, msg_uuid, b'')
+def _build_cmd_get_status(msg_uuid: bytes) -> bytes:
+    return _build_packet(PKT_TYPE_CMD, CMD_GET_STATUS, msg_uuid, b'')
 
 
 # =============================================================================
@@ -272,10 +272,9 @@ def _parse_packet(data: bytes) -> dict:
     pkt_type  = data[0]
     opcode    = data[1]
     flags     = data[2]
-    seq       = data[3]
-    pkt_uuid  = data[4:20]
-    payload_len, = struct.unpack_from('>H', data, 20)
-    payload   = data[22:22 + payload_len] if payload_len <= PACKET_PAYLOAD_SIZE else data[22:22 + PACKET_PAYLOAD_SIZE]
+    pkt_uuid  = data[3:19]
+    payload_len, = struct.unpack_from('>H', data, 19)
+    payload   = data[21:21 + payload_len] if payload_len <= PACKET_PAYLOAD_SIZE else data[21:21 + PACKET_PAYLOAD_SIZE]
 
     ts_unix, = struct.unpack_from('>I', data, PACKET_TS_OFFSET)
     ts_ms,   = struct.unpack_from('>H', data, PACKET_TS_OFFSET + 4)
@@ -286,7 +285,6 @@ def _parse_packet(data: bytes) -> dict:
         'type':     pkt_type,
         'opcode':   opcode,
         'flags':    flags,
-        'seq':      seq,
         'uuid':     pkt_uuid,
         'payload':  payload,
         'ts_unix':  ts_unix,
@@ -310,7 +308,6 @@ class FlexDevice:
         self.timeout  = timeout
         self.verbose  = verbose
         self._serial  = None
-        self._seq     = 1
         self.last_response = None  # last parsed response dict
 
     def __enter__(self):
@@ -358,10 +355,8 @@ class FlexDevice:
         msg_uuid  = uuid_module.uuid4().bytes
         msg_bytes = message.encode('utf-8')[:MAX_MESSAGE_PROTO]
 
-        raw = _build_cmd_send_flex(self._seq, msg_uuid, capcode, frequency,
+        raw = _build_cmd_send_flex(msg_uuid, capcode, frequency,
                                     power, int(mail_drop), msg_bytes)
-        self._seq = (self._seq + 1) & 0xFF
-
         self._send_raw(raw)
 
         rsp = self._recv_packet(timeout_ms=int(self.timeout * 1000))
@@ -393,10 +388,8 @@ class FlexDevice:
         msg_uuid  = uuid_module.uuid4().bytes
         msg_bytes = message.encode('utf-8')[:MAX_MESSAGE_PROTO]
 
-        raw = _build_cmd_send_flex(self._seq, msg_uuid, capcode, frequency,
+        raw = _build_cmd_send_flex(msg_uuid, capcode, frequency,
                                     power, int(mail_drop), msg_bytes)
-        self._seq = (self._seq + 1) & 0xFF
-
         self._send_raw(raw)
 
         # Wait for ACK
@@ -467,8 +460,7 @@ class FlexDevice:
     def ping(self) -> float:
         """Send PING and return round-trip time in milliseconds."""
         msg_uuid = uuid_module.uuid4().bytes
-        raw = _build_cmd_ping(self._seq, msg_uuid)
-        self._seq = (self._seq + 1) & 0xFF
+        raw = _build_cmd_ping(msg_uuid)
 
         t0 = time.time()
         self._send_raw(raw)
@@ -487,8 +479,7 @@ class FlexDevice:
           device_state, queue_count, battery_pct, battery_mv, frequency, power
         """
         msg_uuid = uuid_module.uuid4().bytes
-        raw = _build_cmd_get_status(self._seq, msg_uuid)
-        self._seq = (self._seq + 1) & 0xFF
+        raw = _build_cmd_get_status(msg_uuid)
 
         self._send_raw(raw)
         rsp = self._recv_packet(timeout_ms=3000)
@@ -528,7 +519,7 @@ class FlexDevice:
     def _send_raw(self, raw: bytes):
         cobs_data = _cobs_encode(raw)
         if self.verbose:
-            uuid_str = str(uuid_module.UUID(bytes=raw[4:20]))
+            uuid_str = str(uuid_module.UUID(bytes=raw[3:19]))  # UUID at raw[3:19]
             print(f"TX [uuid={uuid_str}, {len(cobs_data)} COBS bytes]")
         self._serial.write(cobs_data)
         self._serial.flush()
@@ -583,7 +574,7 @@ class FlexDevice:
         if self.verbose:
             uuid_str = str(uuid_module.UUID(bytes=pkt['uuid']))
             print(f"PARSED: type=0x{pkt['type']:02X} opcode=0x{pkt['opcode']:02X} "
-                  f"seq={pkt['seq']} uuid={uuid_str}")
+                  f"uuid={uuid_str}")
             if pkt['ts_flags'] & TS_FLAG_VALID:
                 ts = datetime.fromtimestamp(pkt['ts_unix']).strftime('%Y-%m-%d %H:%M:%S')
                 print(f"ESP32 time: {ts}.{pkt['ts_ms']:03d} (UTC{pkt['ts_tz'] * 0.5:+.1f})")

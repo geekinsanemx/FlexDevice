@@ -41,7 +41,6 @@ Public API returns
 ```c
 typedef struct {
     int      fd;       // POSIX file descriptor for serial port
-    uint8_t  seq;      // Auto-incrementing sequence counter (0-255, wraps)
     int      verbose;  // Debug output flag
 } FlexDevice;
 ```
@@ -52,10 +51,9 @@ typedef struct {
     uint8_t  pkt_type;       // CMD/RSP/EVT
     uint8_t  opcode;
     uint8_t  flags;
-    uint8_t  seq;
     uint8_t  uuid[16];       // RFC 4122 v4 UUID
     uint16_t payload_len;
-    uint8_t  payload[480];
+    uint8_t  payload[481];
     uint32_t ts_unix;        // Unix timestamp (seconds)
     uint16_t ts_ms;          // Milliseconds
     int8_t   ts_tz;          // Timezone offset (30-min units)
@@ -68,15 +66,15 @@ typedef struct {
 
 **Packet build helpers** (`_flex_build_cmd_send_flex`, `_flex_build_cmd_ping`, `_flex_build_cmd_get_status`):
 - Allocates 512-byte raw packet buffer
-- Writes packet type/opcode/flags/seq at bytes [0-3]
-- Copies 16-byte UUID
-- Writes payload length (big-endian uint16 at offset 20)
-- Copies payload data (max 480 bytes at offset 22)
-- **Timestamp** (offset 502-509, 8 bytes):
-  - [502-505]: unix timestamp (big-endian uint32)
-  - [506-507]: milliseconds (big-endian uint16)
-  - [508]: timezone offset in 30-minute units (int8)
-  - [509]: flags byte (VALID | AUTO_ADJUST | SYNC_RTC | DST)
+- Writes packet type/opcode/flags at bytes [0-2]
+- Copies 16-byte UUID at bytes [3-18]
+- Writes payload length (big-endian uint16 at offset 19)
+- Copies payload data (max 481 bytes at offset 21)
+- **Timestamp** (offset 501-508, 8 bytes):
+  - [501-504]: unix timestamp (big-endian uint32)
+  - [505-506]: milliseconds (big-endian uint16)
+  - [507]: timezone offset in 30-minute units (int8)
+  - [508]: flags byte (VALID | AUTO_ADJUST | SYNC_RTC | DST)
 - Computes CRC16-CCITT over bytes [0-509]
 - Stores CRC at offset 510-511 (little-endian uint16)
 
@@ -110,7 +108,7 @@ CMD_GET_STATUS: Empty payload
 
 ### 4. COBS Framing
 
-**_flex_cobs_encode(input[512]) → output[max 514]**:
+**_flex_cobs_encode(input[512]) → output[max 513]**:
 - Replaces all 0x00 bytes with overhead codes
 - Each non-zero run is prefixed with its length
 - Special case: 254-byte run → code 0xFF (no zero inserted)
@@ -122,7 +120,7 @@ CMD_GET_STATUS: Empty payload
 - Validates: input must end with 0x00, no embedded zeros allowed
 - Returns decoded length or 0 on error
 
-**Wire format**: `[COBS-encoded packet (513-514 bytes)] 0x00`
+**Wire format**: `[COBS-encoded packet (~513 bytes)] 0x00`
 
 ### 5. CRC16-CCITT
 
@@ -143,7 +141,7 @@ Test vector: `"123456789"` → `0x29B1`
 - Configures termios: 8N1, no flow control, raw mode
 - Supported baud rates: 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600
 - Flushes buffers with `tcflush(TCIOFLUSH)`
-- Initializes `seq = 1`, `fd = descriptor`, `verbose = 0`
+- Initializes `fd = descriptor`, `verbose = 0`
 
 **flex_close()**:
 - Closes file descriptor
@@ -162,11 +160,11 @@ Test vector: `"123456789"` → `0x29B1`
 **_flex_recv_packet(...)** decodes, validates, and parses one packet:
 - Validates CRC (compare packet[510-511] with computed CRC)
 - Extracts fields:
-  - Type/opcode/flags/seq: bytes [0-3]
-  - UUID: bytes [4-19]
-  - Payload length: bytes [20-21] (big-endian uint16)
-  - Payload: bytes [22 to 22+len]
-  - Timestamp: bytes [502-509] (big-endian multi-field)
+  - Type/opcode/flags: bytes [0-2]
+  - UUID: bytes [3-18]
+  - Payload length: bytes [19-20] (big-endian uint16)
+  - Payload: bytes [21 to 21+len]
+  - Timestamp: bytes [501-508] (big-endian multi-field)
   - CRC: bytes [510-511] (little-endian uint16)
 - Populates `flex_packet_t` struct
 - Returns 0 on success, -1 on CRC mismatch
@@ -180,14 +178,13 @@ Test vector: `"123456789"` → `0x29B1`
   - `millis` = microseconds / 1000
   - `tz_offset` = local timezone in 30-minute units (uses `localtime_r`)
   - `flags` = VALID | AUTO_ADJUST | SYNC_RTC
-- Writes 8-byte timestamp block at offset 502-509 (big-endian)
+- Writes 8-byte timestamp block at offset 501-508 (big-endian)
 
 ### 10. High-Level API
 
 **flex_send_msg()**:
 1. Generate RFC 4122 v4 UUID (16 bytes)
-2. Increment `dev->seq` (wraps at 255)
-3. Build CMD_SEND_FLEX packet with capcode/frequency/power/message payload
+2. Build CMD_SEND_FLEX packet with capcode/frequency/power/message payload
 4. Encode with COBS
 5. Write to UART
 6. Read frames until RSP_ACK with matching UUID (timeout 5000ms)
@@ -229,9 +226,8 @@ Test vector: `"123456789"` → `0x29B1`
 - Async events have independent UUIDs (ignored during command/response matching)
 - Timeout if no matching response within 5000ms
 
-**Sequence Numbers**:
-- Not used for correlation (UUID is authoritative)
-- Incremented per packet for debugging/packet loss detection
+**Correlation**:
+- UUID is the sole correlation mechanism between commands and responses
 
 ## Protocol Constants
 
@@ -239,10 +235,10 @@ All constants mirror firmware's `binary_packet.h`:
 
 ```c
 #define FLEX_PACKET_SIZE      512    // Total packet size
-#define FLEX_HEADER_SIZE       22    // Bytes before payload
-#define FLEX_PAYLOAD_SIZE     480    // Max payload bytes
+#define FLEX_HEADER_SIZE       21    // Bytes before payload
+#define FLEX_PAYLOAD_SIZE     481    // Max payload bytes
 #define FLEX_CRC_OFFSET       510    // CRC location
-#define FLEX_TS_OFFSET        502    // Timestamp location
+#define FLEX_TS_OFFSET        501    // Timestamp location
 #define FLEX_MAX_MESSAGE      248    // Firmware truncates to 248 chars
 #define FLEX_MAX_MSG_PROTO    255    // Protocol max (before truncation)
 ```
@@ -313,7 +309,6 @@ Dependencies: POSIX (termios, unistd, fcntl)
 **Not thread-safe**. Use one FlexDevice instance per thread, or add external mutex.
 
 Reasons:
-- Shared `seq` counter
 - Single `fd` for RX/TX
 - No internal locking
 

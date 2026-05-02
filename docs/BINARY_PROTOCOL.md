@@ -1,16 +1,16 @@
-# Binary Protocol Specification v2.5.6
+# Binary Protocol Specification v2.5.7
 
 ## Overview
 
 Binary protocol used by FlexDevice over UART with COBS framing and CRC16-CCITT integrity checks.
 
-- Current firmware target: `v2.5.6`
+- Current firmware target: `v2.5.7`
 - Transport: UART `115200 8N1`
 - Framing: COBS, frame delimiter `0x00`
 
 ## Packet Layout
 
-All packets are exactly 512 bytes before COBS encoding.
+All packets are exactly 512 bytes, COBS-encoded for wire transport.
 
 ```text
 Offset    Size  Field
@@ -18,20 +18,19 @@ Offset    Size  Field
 [0]       1     type       (CMD/RSP/EVT)
 [1]       1     opcode
 [2]       1     flags
-[3]       1     seq        (uint8, 0-255)
-[4-19]    16    uuid       (RFC4122 v4 bytes)
-[20-21]   2     payload_len (big-endian)
-[22-501]  480   payload
-[502-509] 8     timestamp header
-[510-511] 2     crc16      (little-endian storage)
+[3-18]    16    uuid       (RFC4122 v4 bytes)
+[19-20]   2     payload_len (big-endian)
+[21-501]  481   payload
+[501-508] 8     timestamp header
+[509-510] 2     crc16      (little-endian storage)
 ```
 
 ### Constants
 
 ```c
 #define PACKET_FIXED_SIZE      512
-#define PACKET_HEADER_SIZE     22
-#define PACKET_PAYLOAD_SIZE    480
+#define PACKET_HEADER_SIZE     21
+#define PACKET_PAYLOAD_SIZE    481
 #define PACKET_TIMESTAMP_SIZE  8
 #define PACKET_CRC_OFFSET      510
 ```
@@ -106,14 +105,13 @@ Timestamp flags in timestamp byte `[509]`:
 #define TS_FLAG_DST_ACTIVE  0x08
 ```
 
-## Sequence and UUID
+## UUID
 
-- `seq` is `uint8_t` (`0..255`, wraps).
 - UUID is 16 raw bytes (RFC4122 v4 layout).
 - For command/response, device copies command UUID into response UUID.
 - TX lifecycle events reuse the same UUID as the queued message.
 
-## Timestamp Header (offset 502-509)
+## Timestamp Header (offset 501-508)
 
 ```c
 typedef struct __attribute__((packed)) {
@@ -209,7 +207,7 @@ Result codes:
 
 - Encode the full 512-byte packet.
 - Transmit `<COBS_ENCODED_BYTES ... 0x00>`.
-- Max encoded size is typically 513-514 bytes.
+- Max encoded size is typically 513 bytes.
 
 See `docs/COBS_ENCAPSULATION.md` for algorithm details and vectors.
 
@@ -240,28 +238,15 @@ See `docs/COBS_ENCAPSULATION.md` for algorithm details and vectors.
 
 - `v2.5.5` introduced 8-byte capcode (`uint64_t`) in `CMD_SEND_FLEX`.
 - `v2.5.6` improved binary stream reliability (larger UART TX buffer, fewer mixed-stream issues).
+- `v2.5.7` added per-frame reception timeout to prevent AT lockout after partial binary frames.
 
-## Protocol Hardening (Future Work)
+## Protocol Hardening (Implemented in v2.5.7)
 
-The current protocol provides basic integrity via CRC16, fixed packet size, and COBS framing. These enhancements would increase robustness for high-reliability use cases:
+### Fix — Per-Frame Reception Timeout
 
-### Frame Synchronization / Magic Validation
-
-- **Current**: No magic bytes validated; any 512-byte sequence with valid CRC is accepted.
-- **Recommended**: Add magic bytes at packet start (e.g., `0x46 0x4C` = "FL") validated by receiver before CRC check.
-- **Benefit**: Prevents false sync to non-packet data in stream.
-
-### Sequence Number Window Validation
-
-- **Current**: `seq` is `uint8_t` (0-255), wraps silently, no validation.
-- **Recommended**: Add sequence window tracking; reject frames outside expected window or detect wrap-around.
-- **Benefit**: Prevents replay attacks and helps identify dropped frames.
-
-### Frame Reception Timeout
-
-- **Current**: No timeout on binary frame reception; buffer grows until `0x00` delimiter or overflow.
-- **Recommended**: Add idle timeout (e.g., 100ms) after first byte of frame; reset state if timeout triggers.
-- **Benefit**: Prevents buffer issues on malformed/incomplete frames.
+- **Status**: Implemented.
+- **Firmware** (`at_commands.cpp`): `process_binary_frame()` tracks `binary_frame_start_ms` on the first byte. If the frame is not completed within `BINARY_FRAME_TIMEOUT_MS` (200 ms), the partial buffer is discarded and the state resets.
+- **Constant**: `BINARY_FRAME_TIMEOUT_MS = 200` in `config.h`. Derived from: 518 bytes at 115200 baud ≈ 45 ms; 200 ms = 4.4× safety margin.
 
 ## Related Docs
 

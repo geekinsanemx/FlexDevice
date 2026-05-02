@@ -41,9 +41,9 @@ All constants mirror firmware's `binary_packet.h`:
 
 ```python
 PACKET_FIXED_SIZE    = 512   # Total packet size
-PACKET_PAYLOAD_SIZE  = 480   # Max payload bytes
+PACKET_PAYLOAD_SIZE  = 481   # Max payload bytes
 PACKET_CRC_OFFSET    = 510   # CRC location
-PACKET_TS_OFFSET     = 502   # Timestamp location
+PACKET_TS_OFFSET     = 501   # Timestamp location
 MAX_MESSAGE_PROTO    = 255   # Protocol max (firmware truncates to 248)
 CMD_SEND_ARGS_SIZE   = 15    # Fixed payload size for CMD_SEND_FLEX
 
@@ -114,26 +114,25 @@ except FlexRejectedError as e:
 
 ### 3. Packet Building
 
-**_build_packet(pkt_type, opcode, seq, uuid, payload) → bytes[512]**:
+**_build_packet(pkt_type, opcode, uuid, payload) → bytes[512]**:
 - Creates 512-byte bytearray initialized to zeros
 - **Structure**:
   - [0]: packet type (CMD/RSP/EVT)
   - [1]: opcode
   - [2]: flags (FLAG_ACK_REQUIRED = 0x01)
-  - [3]: sequence number (0-255)
-  - [4-19]: UUID (16 bytes)
-  - [20-21]: payload length (big-endian uint16)
-  - [22-501]: payload data (max 480 bytes)
-  - [502-509]: timestamp (8 bytes, see below)
+  - [3-18]: UUID (16 bytes)
+  - [19-20]: payload length (big-endian uint16)
+  - [21-501]: payload data (max 481 bytes)
+  - [501-508]: timestamp (8 bytes, see below)
   - [510-511]: CRC16 (little-endian uint16)
 
-**Timestamp Block** (offset 502-509):
+**Timestamp Block** (offset 501-508):
 ```python
 # Big-endian multi-field struct
-[502-505]  uint32  unix_timestamp (seconds since epoch)
-[506-507]  uint16  milliseconds (0-999)
-[508]      int8    timezone_offset (in 30-minute units)
-[509]      uint8   flags (VALID | AUTO_ADJUST | SYNC_RTC)
+[501-504]  uint32  unix_timestamp (seconds since epoch)
+[505-506]  uint16  milliseconds (0-999)
+[507]      int8    timezone_offset (in 30-minute units)
+[508]      uint8   flags (VALID | AUTO_ADJUST | SYNC_RTC)
 ```
 - Uses `datetime.now(timezone.utc)` for UTC time
 - Converts local timezone offset to 30-minute units: `tz_units = -int(offset / 1800)`
@@ -145,7 +144,7 @@ except FlexRejectedError as e:
 - Covers bytes [0-509] (entire packet except CRC field)
 - Stored as little-endian uint16 at [510-511]: `struct.pack_into('<H', raw, 510, crc)`
 
-**_build_cmd_send_flex(seq, uuid, capcode, freq, power, mail_drop, message) → bytes[512]**:
+**_build_cmd_send_flex(uuid, capcode, freq, power, mail_drop, message) → bytes[512]**:
 
 Payload layout (little-endian):
 ```python
@@ -180,7 +179,7 @@ uuid_str = str(uuid_module.UUID(bytes=msg_uuid))
 
 **_cobs_encode(data: bytes) → bytes**:
 - Input: 512-byte packet
-- Output: 513-514 bytes (encoded + 0x00 delimiter)
+- Output: ~513 bytes (encoded + 0x00 delimiter)
 - Algorithm:
   1. Initialize output bytearray with overhead code placeholder
   2. For each input byte:
@@ -222,7 +221,7 @@ return crc
 
 **FlexDevice.__init__(port, baudrate=115200, timeout=5.0, verbose=False)**:
 - Stores port/baudrate/timeout/verbose
-- Initializes `seq = 1`, `last_response = None`
+- Initializes `last_response = None`
 - Does NOT open serial port (call `open()` or use context manager)
 
 **open()**:
@@ -273,13 +272,12 @@ with FlexDevice('/dev/ttyUSB0') as dev:
     'type':     data[0],              # uint8
     'opcode':   data[1],              # uint8
     'flags':    data[2],              # uint8
-    'seq':      data[3],              # uint8
-    'uuid':     data[4:20],           # bytes[16]
-    'payload':  data[22:22+payload_len],  # bytes[0-480]
-    'ts_unix':  struct.unpack_from('>I', data, 502)[0],  # uint32 BE
-    'ts_ms':    struct.unpack_from('>H', data, 506)[0],  # uint16 BE
-    'ts_tz':    struct.unpack_from('b',  data, 508)[0],  # int8
-    'ts_flags': data[509],                               # uint8
+    'uuid':     data[3:19],           # bytes[16]
+    'payload':  data[21:21+payload_len],  # bytes[0-481]
+    'ts_unix':  struct.unpack_from('>I', data, 501)[0],  # uint32 BE
+    'ts_ms':    struct.unpack_from('>H', data, 505)[0],  # uint16 BE
+    'ts_tz':    struct.unpack_from('b',  data, 507)[0],  # int8
+    'ts_flags': data[508],                               # uint8
 }
 ```
 
@@ -291,15 +289,12 @@ self.port         # Serial port path (e.g., '/dev/ttyUSB0')
 self.baudrate     # Baud rate (default 115200)
 self.timeout      # Response timeout in seconds (default 5.0)
 self.verbose      # Debug output flag (default False)
-self.seq          # Sequence counter (0-255, auto-increments)
-self.ser          # pyserial.Serial instance (None if closed)
 self.last_response  # dict of last parsed response/event packet
 ```
 
 **send_message(capcode, frequency, power, message, mail_drop=False) → uuid_str**:
 1. Generate random UUID: `uuid_module.uuid4().bytes`
-2. Increment `self.seq` (wraps at 255)
-3. Truncate message to 255 bytes if needed
+2. Truncate message to 255 bytes if needed
 4. Build CMD_SEND_FLEX packet
 5. COBS-encode and send
 6. Read frames until RSP_ACK with matching UUID (timeout: `self.timeout`)
@@ -351,11 +346,6 @@ self.last_response  # dict of last parsed response/event packet
   4. Compare packet UUID with command UUID when required
   5. Ignore unrelated async frames
   6. Timeout raises `FlexTimeoutError`
-
-**Sequence Numbers**:
-- Incremented for every sent packet: `self.seq = (self.seq + 1) & 0xFF`
-- Not used for response matching (UUID is authoritative)
-- Used for debugging and packet loss detection
 
 **last_response Field**:
 - Updated after every successful API call
@@ -472,14 +462,13 @@ Tested with:
 **Not thread-safe**. Use one FlexDevice instance per thread or add external `threading.Lock`.
 
 Reasons:
-- Shared `seq` counter
 - Shared `pyserial.Serial` instance
 - No internal locking
 
 ## Performance Notes
 
 - **COBS overhead**: +1-2 bytes per 512-byte packet (~0.4%)
-- **Packet size**: 513-514 bytes on wire
+- **Packet size**: ~513 bytes on wire
 - **Baud rate vs throughput**:
   - 115200 baud: ~11.5 KB/s → ~22 packets/sec
   - 921600 baud: ~92 KB/s → ~180 packets/sec
@@ -503,7 +492,7 @@ Output includes:
 ```python
 uuid = dev.send_message(...)
 print(f"Last response: {dev.last_response}")
-# Keys: type, opcode, flags, seq, uuid, payload, ts_unix, ts_ms, ts_tz, ts_flags
+# Keys: type, opcode, flags, uuid, payload, ts_unix, ts_ms, ts_tz, ts_flags
 ```
 
 ## See Also
