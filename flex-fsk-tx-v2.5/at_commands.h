@@ -61,4 +61,7 @@ extern size_t binary_frame_pos;
 void process_binary_frame();
 void handle_binary_packet(uint8_t *cobs_data, size_t len);
 
+// Check and discard a stalled partial binary frame (call before stream dispatch).
+bool binary_frame_timeout_check();
+
 #endif // AT_COMMANDS_H

@@ -114,6 +114,13 @@ static const uint8_t EMR_PATTERN[EMR_PATTERN_SIZE] = {0xA5, 0x5A, 0xA5, 0x5A};
 #define FACTORY_RESET_HOLD_TIME 30000     // 30 seconds
 
 // =============================================================================
+// BINARY PROTOCOL FRAMING
+// =============================================================================
+// Per-frame idle timeout: discard partial frames that stall mid-receive.
+// Derived from baud rate: 520 bytes @ 115200 baud ≈ 45 ms; 200 ms = 4x margin.
+#define BINARY_FRAME_TIMEOUT_MS 200
+
+// =============================================================================
 // WATCHDOG TIMER
 // =============================================================================
 #define WATCHDOG_TIMEOUT_S 60

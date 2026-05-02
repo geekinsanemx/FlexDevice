@@ -29,7 +29,7 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
         char uuid_str[37];
         uuid_to_string(pkt->uuid, uuid_str);
         logMessagef("BINARY: Invalid payload_len=%d uuid=%s", payload_len, uuid_str);
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_INVALID_PARAM);
+        send_binary_response_nack(pkt->uuid, STATUS_INVALID_PARAM);
         return;
     }
 
@@ -50,7 +50,7 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
         uuid_to_string(pkt->uuid, uuid_str);
         logMessagef("BINARY: Invalid msg_len=%d (max=%d) uuid=%s",
                     msg_len, MAX_MESSAGE_IN_PROTOCOL, uuid_str);
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_INVALID_PARAM);
+        send_binary_response_nack(pkt->uuid, STATUS_INVALID_PARAM);
         return;
     }
 
@@ -78,19 +78,19 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
 
     if (!validate_flex_capcode(capcode)) {
         logMessage("BINARY: Invalid capcode");
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_INVALID_PARAM);
+        send_binary_response_nack(pkt->uuid, STATUS_INVALID_PARAM);
         return;
     }
 
     if (frequency < 400.0 || frequency > 1000.0) {
         logMessage("BINARY: Invalid frequency");
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_INVALID_PARAM);
+        send_binary_response_nack(pkt->uuid, STATUS_INVALID_PARAM);
         return;
     }
 
     if (tx_power < -1 || tx_power > 20) {
         logMessage("BINARY: Invalid TX power");
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_INVALID_PARAM);
+        send_binary_response_nack(pkt->uuid, STATUS_INVALID_PARAM);
         return;
     }
 
@@ -99,11 +99,11 @@ void handle_cmd_send_flex(binary_packet_t *pkt) {
     if (!queue_add_message_with_uuid(pkt->uuid, capcode, frequency,
                                       tx_power, mail_drop_flag, safe_message)) {
         logMessage("BINARY: Queue full");
-        send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_QUEUE_FULL);
+        send_binary_response_nack(pkt->uuid, STATUS_QUEUE_FULL);
         return;
     }
 
-    send_binary_response_ack(pkt->seq, pkt->uuid, STATUS_ACCEPTED);
+    send_binary_response_ack(pkt->uuid, STATUS_ACCEPTED);
     send_evt_tx_queued(pkt->uuid, queue_count);
 }
 
@@ -121,7 +121,7 @@ void handle_cmd_get_status(binary_packet_t *pkt) {
     int battery_percentage;
     getBatteryInfo(&battery_voltage_mv, &battery_percentage);
 
-    send_binary_response_status(pkt->seq, pkt->uuid, device_state, queue_count,
+    send_binary_response_status(pkt->uuid, device_state, queue_count,
                                 (uint8_t)battery_percentage, battery_voltage_mv,
                                 current_tx_frequency, (int8_t)current_tx_power);
 }
@@ -135,7 +135,7 @@ void handle_cmd_abort(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_ABORT uuid=%s", uuid_str);
 
-    send_binary_response_ack(pkt->seq, pkt->uuid, STATUS_ACCEPTED);
+    send_binary_response_ack(pkt->uuid, STATUS_ACCEPTED);
 }
 
 void handle_cmd_set_config(binary_packet_t *pkt) {
@@ -147,7 +147,7 @@ void handle_cmd_set_config(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_SET_CONFIG uuid=%s", uuid_str);
 
-    send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+    send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
 }
 
 void handle_cmd_get_config(binary_packet_t *pkt) {
@@ -159,7 +159,7 @@ void handle_cmd_get_config(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_GET_CONFIG uuid=%s", uuid_str);
 
-    send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+    send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
 }
 
 void handle_cmd_ping(binary_packet_t *pkt) {
@@ -171,7 +171,7 @@ void handle_cmd_ping(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_PING uuid=%s", uuid_str);
 
-    send_binary_response_pong(pkt->seq, pkt->uuid);
+    send_binary_response_pong(pkt->uuid);
 }
 
 void handle_cmd_get_logs(binary_packet_t *pkt) {
@@ -183,7 +183,7 @@ void handle_cmd_get_logs(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_GET_LOGS uuid=%s", uuid_str);
 
-    send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+    send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
 }
 
 void handle_cmd_clear_logs(binary_packet_t *pkt) {
@@ -195,7 +195,7 @@ void handle_cmd_clear_logs(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_CLEAR_LOGS uuid=%s", uuid_str);
 
-    send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+    send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
 }
 
 void handle_cmd_factory_reset(binary_packet_t *pkt) {
@@ -207,7 +207,7 @@ void handle_cmd_factory_reset(binary_packet_t *pkt) {
     uuid_to_string(pkt->uuid, uuid_str);
     logMessagef("BINARY: CMD_FACTORY_RESET uuid=%s", uuid_str);
 
-    send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+    send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
 }
 
 void dispatch_binary_command(binary_packet_t *pkt) {
@@ -258,7 +258,7 @@ void dispatch_binary_command(binary_packet_t *pkt) {
                 uuid_to_string(pkt->uuid, uuid_str);
                 logMessagef("BINARY: Unknown command opcode 0x%02X uuid=%s",
                             pkt->opcode, uuid_str);
-                send_binary_response_nack(pkt->seq, pkt->uuid, STATUS_REJECTED);
+                send_binary_response_nack(pkt->uuid, STATUS_REJECTED);
             }
             break;
     }

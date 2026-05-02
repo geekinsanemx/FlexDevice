@@ -1,5 +1,7 @@
-# COBS Encapsulation
+# COBS Encapsulation (Supplemental Reference)
 ## FLEX-FSK-TX Binary Protocol
+
+> **Note**: This document provides extended COBS implementation details. For the complete binary protocol specification including packet structure, opcodes, and communication patterns, see [README.md](../README.md) or [BINARY_PROTOCOL.md](BINARY_PROTOCOL.md).
 
 ---
 
@@ -154,11 +156,11 @@ def cobs_decode(data: bytes) -> bytes:
 
 ## Packet on the Wire
 
-A 512-byte binary packet after COBS encoding becomes at most 514 bytes (512 + 1 overhead byte + 1 delimiter). In practice for FLEX packets the encoded size is 513-514 bytes.
+A 512-byte binary packet after COBS encoding becomes at most 513 bytes (512 + 1 overhead byte + 1 delimiter). In practice for FLEX packets the encoded size is typically 513 bytes.
 
 ```
 [ COBS_ENCODED(512 bytes) ] [ 0x00 ]
-  513-514 bytes               1 byte
+  ~513 bytes                  1 byte
 ```
 
 ---

@@ -45,11 +45,12 @@ typedef struct __attribute__((packed)) {
 
 // Fixed packet size - ALL packets are EXACTLY 512 bytes
 #define PACKET_FIXED_SIZE 512
-#define PACKET_HEADER_SIZE 22            // type + opcode + flags + seq + uuid + payload_len
-#define PACKET_PAYLOAD_SIZE 480          // Fixed payload area
+#define PACKET_HEADER_SIZE 21            // type + opcode + flags + uuid + payload_len
+#define PACKET_PAYLOAD_SIZE 481          // Fixed payload area (gained 1 byte from seq removal)
 #define PACKET_TIMESTAMP_SIZE 8          // Timestamp header size
 #define PACKET_CRC_SIZE 2                // CRC16 field size
 #define PACKET_CRC_OFFSET 510            // CRC always at offset 510-511
+
 
 // Protocol limits
 #define MAX_MESSAGE_IN_PROTOCOL 255      // msg_len is uint8_t (1 byte)
@@ -144,18 +145,16 @@ typedef struct __attribute__((packed)) {
  * [0]      type           - Packet type (CMD/RSP/EVT)
  * [1]      opcode         - Operation code
  * [2]      flags          - Control flags
- * [3]      seq            - Sequence number
- * [4-19]   uuid           - 128-bit UUID for message tracking
- * [20-21]  payload_len    - Valid bytes in payload (big-endian)
- * [22-501] payload        - Fixed 480-byte payload area
- * [502-509] ts            - Timestamp header (8 bytes) - AFTER payload
- * [510-511] crc16         - CRC16-CCITT (ALWAYS at this offset)
+ * [3-18]   uuid           - 128-bit UUID for message tracking
+ * [19-20]  payload_len    - Valid bytes in payload (big-endian)
+ * [21-500] payload        - Fixed 480-byte payload area
+ * [501-508] ts            - Timestamp header (8 bytes) - AFTER payload
+ * [509-510] crc16         - CRC16-CCITT (ALWAYS at this offset)
  */
 typedef struct __attribute__((packed)) {
     uint8_t  type;
     uint8_t  opcode;
     uint8_t  flags;
-    uint8_t  seq;
     uint8_t  uuid[16];
     uint16_t payload_len;
     uint8_t  payload[PACKET_PAYLOAD_SIZE];
@@ -171,7 +170,7 @@ static_assert(sizeof(binary_packet_t) == PACKET_FIXED_SIZE,
 // PAYLOAD STRUCTURES
 // =============================================================================
 
-// CMD_SEND_FLEX payload layout (within packet.payload[480])
+// CMD_SEND_FLEX payload layout (within packet.payload[481])
 // [0-7]   capcode (8 bytes, little-endian, uint64_t)
 // [8-11]  frequency (4 bytes, IEEE 754 float)
 // [12]    tx_power (1 byte, signed)
@@ -215,8 +214,7 @@ typedef struct __attribute__((packed)) {
  * Build CMD_SEND_FLEX packet
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number
- * @param msg_id    Application message ID
+ * @param uuid      16-byte UUID (RFC 4122 v4)
  * @param capcode   FLEX capcode
  * @param frequency Frequency in MHz
  * @param tx_power  TX power in dBm
@@ -225,7 +223,7 @@ typedef struct __attribute__((packed)) {
  * @param msg_len   Message length (1-248)
  * @return          Total packet length (including CRC)
  */
-size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
+size_t build_cmd_send_flex(binary_packet_t *pkt, const uint8_t uuid[16],
                            uint64_t capcode, float frequency, int8_t tx_power,
                            uint8_t mail_drop, const char *message, uint8_t msg_len);
 
@@ -233,71 +231,54 @@ size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
  * Build RSP_ACK packet
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number (from received command)
- * @param msg_id    Application message ID (from received command)
+ * @param uuid      16-byte UUID (copied from received command)
  * @param status    Status code (STATUS_ACCEPTED, etc.)
  * @return          Total packet length
  */
-size_t build_rsp_ack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t status);
+size_t build_rsp_ack(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t status);
 
 /**
  * Build RSP_NACK packet (same as RSP_ACK but different opcode)
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number
- * @param msg_id    Application message ID
+ * @param uuid      16-byte UUID (RFC 4122 v4)
  * @param status    Status code (STATUS_REJECTED, etc.)
  * @return          Total packet length
  */
-size_t build_rsp_nack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t status);
+size_t build_rsp_nack(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t status);
 
 /**
  * Build RSP_STATUS packet
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number
- * @param msg_id    Application message ID
+ * @param uuid      16-byte UUID (RFC 4122 v4)
  * @param status    Status payload
  * @return          Total packet length
  */
-size_t build_rsp_status(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
+size_t build_rsp_status(binary_packet_t *pkt, const uint8_t uuid[16],
                         const rsp_status_payload_t *status);
 
 /**
  * Build RSP_PONG packet
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number
- * @param msg_id    Application message ID
+ * @param uuid      16-byte UUID (RFC 4122 v4)
  * @return          Total packet length
  */
-size_t build_rsp_pong(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16]);
+size_t build_rsp_pong(binary_packet_t *pkt, const uint8_t uuid[16]);
 
 /**
  * Build EVT_TX_QUEUED packet
  *
  * @param pkt       Output packet buffer
- * @param seq       Transport sequence number
- * @param msg_id    Application message ID
+ * @param uuid      16-byte UUID (RFC 4122 v4)
  * @param pos       Queue position (1-10)
  * @return          Total packet length
  */
-size_t build_evt_tx_queued(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t pos);
-
-/**
- * Build EVT_TX_START packet
- */
-size_t build_evt_tx_start(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16]);
-
-/**
- * Build EVT_TX_DONE packet
- */
-size_t build_evt_tx_done(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t result);
-
-/**
- * Build EVT_TX_FAILED packet
- */
-size_t build_evt_tx_failed(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t error);
+size_t build_evt_tx_queued(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t pos);
+size_t build_evt_tx_start(binary_packet_t *pkt, const uint8_t uuid[16]);
+size_t build_evt_tx_done(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t result);
+size_t build_evt_tx_failed(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t error);
 
 // =============================================================================
 // FUNCTION PROTOTYPES: PACKET PARSING

@@ -10,7 +10,6 @@
 #include <stdint.h>
 
 extern bool binary_protocol_active;
-extern uint8_t binary_event_seq;
 
 /**
  * Send EVT_TX_QUEUED event
@@ -50,22 +49,22 @@ void send_evt_power_disconnected();
 /**
  * Send RSP_ACK response
  */
-void send_binary_response_ack(uint8_t seq, const uint8_t uuid[16], uint8_t status);
+void send_binary_response_ack(const uint8_t uuid[16], uint8_t status);
 
 /**
  * Send RSP_NACK response
  */
-void send_binary_response_nack(uint8_t seq, const uint8_t uuid[16], uint8_t status);
+void send_binary_response_nack(const uint8_t uuid[16], uint8_t status);
 
 /**
  * Send RSP_PONG response
  */
-void send_binary_response_pong(uint8_t seq, const uint8_t uuid[16]);
+void send_binary_response_pong(const uint8_t uuid[16]);
 
 /**
  * Send RSP_STATUS response
  */
-void send_binary_response_status(uint8_t seq, const uint8_t uuid[16],
+void send_binary_response_status(const uint8_t uuid[16],
                                  uint8_t device_state, uint8_t queue_count,
                                  uint8_t battery_pct, uint16_t battery_mv,
                                  float frequency, int8_t power);

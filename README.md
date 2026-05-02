@@ -125,17 +125,16 @@ Offset    | Size | Field              | Description
 [0]       | 1    | type               | Packet type (CMD/RSP/EVT)
 [1]       | 1    | opcode             | Operation code
 [2]       | 1    | flags              | Control flags
-[3]       | 1    | seq                | Sequence number (0-255, wraps)
-[4-19]    | 16   | uuid               | 128-bit UUID (RFC 4122 v4)
-[20-21]   | 2    | payload_len        | Valid bytes in payload (big-endian)
-[22-501]  | 480  | payload            | Variable payload data
-[502-509] | 8    | timestamp          | Timestamp header (v2.5.3+)
-[510-511] | 2    | crc16              | CRC16-CCITT checksum
+[3-18]    | 16   | uuid               | 128-bit UUID (RFC 4122 v4)
+[19-20]   | 2    | payload_len        | Valid bytes in payload (big-endian)
+[21-501]  | 481  | payload            | Variable payload data
+[501-508] | 8    | timestamp          | Timestamp header (v2.5.3+)
+[509-510] | 2    | crc16              | CRC16-CCITT checksum
 ```
 
 **Design Rationale:**
-- Compact header (22 bytes) for efficient parsing
-- Maximum payload (480 bytes) for message data
+- Compact header (21 bytes) for efficient parsing
+- Maximum payload (481 bytes) for message data
 - Timestamp positioned before CRC for integrity protection
 - CRC at fixed offset 510 validates entire packet
 
@@ -183,7 +182,7 @@ Binary packets are COBS-encoded before transmission to ensure binary-safe commun
 
 | Opcode | Name               | Payload | Description |
 |--------|--------------------|---------|-------------|
-| 0x01   | CMD_SEND_FLEX      | capcode(4) + frequency(4) + power(1) + mail(1) + len(1) + message | Send FLEX message |
+| 0x01   | CMD_SEND_FLEX      | capcode(8) + frequency(4) + power(1) + mail(1) + len(1) + message | Send FLEX message |
 | 0x02   | CMD_GET_STATUS     | empty | Query device status |
 | 0x06   | CMD_PING           | empty | Heartbeat/connectivity test |
 | 0x09   | CMD_FACTORY_RESET  | empty | Factory reset device |
@@ -327,8 +326,8 @@ arduino-cli upload -p /dev/ttyACM0 --fqbn esp32:esp32:ttgo-lora32
 ### Client Compilation
 
 ```bash
-cd tools
-gcc -o flex-binary-client flex-binary-client.c -O2 -Wall
+cd cli
+gcc -I./libflex_binary -o flex-cli flex-cli.c -O2 -Wall
 ```
 
 ### Required Arduino Libraries
@@ -363,7 +362,7 @@ OK
 
 # Query device status
 AT+STATUS?
-+STATUS: IDLE,0,85%,4150mV,931.9375MHz,10dBm
++STATUS: READY
 OK
 ```
 
@@ -371,7 +370,7 @@ OK
 
 ```bash
 # Send message with verbose output (shows timestamps and latency)
-tools/flex-binary-client -d /dev/ttyUSB0 -f 931.9375 -p 10 \
+cli/flex-cli -d /dev/ttyUSB0 -f 931.9375 -p 10 \
   1234567 "Hello Binary Protocol" -v
 
 # Output:
@@ -395,7 +394,7 @@ Done.
 ### Client Command Options
 
 ```
-Usage: flex-binary-client [OPTIONS] CAPCODE MESSAGE
+Usage: flex-cli [OPTIONS] CAPCODE MESSAGE
 
 Options:
   -d DEVICE    Serial device (default: /dev/ttyUSB0)
@@ -408,9 +407,9 @@ Options:
   -h           Show help
 
 Examples:
-  flex-binary-client 1234567 "Hello World"
-  flex-binary-client -d /dev/ttyUSB0 -f 931.9375 -p 15 -w 1234567 "Test"
-  flex-binary-client -v -m 37137 "Mail drop message"
+  flex-cli 1234567 "Hello World"
+  flex-cli -d /dev/ttyUSB0 -f 931.9375 -p 15 -w 1234567 "Test"
+  flex-cli -v -m 37137 "Mail drop message"
 ```
 
 ---
@@ -468,36 +467,34 @@ Examples:
 
 ## File Structure
 
-```
-flex-fsk-tx-v2.5/
-├── flex-fsk-tx-v2.5.ino    # Main firmware (setup/loop)
-├── config.h                 # Configuration constants
-│
-├── at_commands.h / .cpp     # AT parser + binary handler + drift check
-├── binary_packet.h / .cpp   # Packet structures and builders
-├── binary_handlers.h / .cpp # Command handlers
-├── binary_events.h / .cpp   # Event senders
-│
-├── cobs.h / .cpp            # COBS framing
-├── crc16.h / .cpp           # CRC16-CCITT
-├── uuid.h / .cpp            # UUID generation
-│
-├── flex_protocol.h / .cpp   # FLEX encoding, EMR, queue
-├── transmission.h / .cpp    # Core 0 transmission task
-│
-├── hardware.h / .cpp        # Hardware abstraction (radio, RTC, battery)
-├── display.h / .cpp         # OLED display logic
-├── storage.h / .cpp         # NVS + SPIFFS management
-├── logging.h / .cpp         # Persistent logging system
-├── utils.h / .cpp           # Utility functions
-│
-├── boards/                  # Symlink to ../../include/boards
-├── tinyflex/                # Symlink to ../../include/tinyflex
-│
-├── tools/
-│   └── flex-binary-client.c # C client for binary protocol
-│
-└── README.md                # This file
+```text
+FlexDevice/
+├── flex-fsk-tx-v2.5/
+│   ├── flex-fsk-tx-v2.5.ino      # Main firmware (setup/loop)
+│   ├── config.h                  # Configuration constants
+│   ├── at_commands.h / .cpp      # AT parser + binary handler + drift check
+│   ├── binary_packet.h / .cpp    # Packet structures and builders
+│   ├── binary_handlers.h / .cpp  # Command handlers
+│   ├── binary_events.h / .cpp    # Event senders
+│   ├── cobs.h / .cpp             # COBS framing
+│   ├── crc16.h / .cpp            # CRC16-CCITT
+│   ├── uuid.h / .cpp             # UUID generation
+│   ├── flex_protocol.h / .cpp    # FLEX encoding, EMR, queue
+│   ├── transmission.h / .cpp     # Core 0 transmission task
+│   ├── hardware.h / .cpp         # Hardware abstraction
+│   ├── display.h / .cpp          # OLED display logic
+│   ├── storage.h / .cpp          # NVS + SPIFFS management
+│   ├── logging.h / .cpp          # Persistent logging system
+│   └── utils.h / .cpp            # Utility functions
+├── cli/
+│   ├── flex-cli.c                        # Stand-alone C CLI
+│   ├── libflex_binary/FlexDevice.h       # Header-only C library
+│   └── libraries/python/FlexDevice.py    # Python library
+├── docs/
+│   ├── BINARY_PROTOCOL.md
+│   ├── COBS_ENCAPSULATION.md
+│   └── AT_COMMANDS.md
+└── README.md
 ```
 
 ---
@@ -562,7 +559,7 @@ flex-fsk-tx-v2.5/
 
 ### v2.5.6 (2026-04-10) - Current
 - Fixed Serial TX buffer overflow causing binary packet truncation
-- Increased TX buffer from 256 to 1024 bytes to handle 514-byte COBS frames
+- Increased TX buffer from 256 to 1024 bytes to handle COBS-encoded frames
 - Removed ASCII logs from binary event functions to prevent corruption
 - Added Serial.flush() before binary packet writes
 - Fixed `-w` flag: clients now properly receive TX_DONE events without timeout
@@ -610,6 +607,16 @@ flex-fsk-tx-v2.5/
 
 ---
 
+## Protocol Hardening (v2.5.7)
+
+Protocol provides CRC16 validation, fixed 512-byte packets, COBS framing, plus:
+
+| Enhancement | Status | Benefit |
+|-------------|--------|---------|
+| **Per-frame reception timeout** (200 ms) | Implemented | Discards stalled partial frames; prevents AT command lockout |
+
+---
+
 ## Documentation
 
 ### Protocol Specifications
@@ -617,7 +624,7 @@ flex-fsk-tx-v2.5/
   - Packet structure and field layouts
   - All opcodes, commands, responses, and events
   - Payload structures for each command type
-  - UUID/SEQ semantics and message correlation
+  - UUID semantics and message correlation
   - CRC16-CCITT specification
   - Communication patterns and error handling
 
@@ -634,14 +641,14 @@ flex-fsk-tx-v2.5/
   - Troubleshooting guide
 
 ### Client Libraries
-- **[tools/README.md](tools/README.md)** — Binary protocol tools overview
-- **[tools/libflex_binary/README.md](tools/libflex_binary/README.md)** — C library architecture
+- **[cli/README.md](cli/README.md)** — Binary protocol tools overview
+- **[cli/libflex_binary/README.md](cli/libflex_binary/README.md)** — C library architecture
   - Internal design and data structures
   - Packet building, COBS, CRC, UUID generation
   - Serial port management and frame reception
   - Complete API documentation
 
-- **[tools/python/README.md](tools/python/README.md)** — Python library architecture
+- **[cli/libraries/python/README.md](cli/libraries/python/README.md)** — Python library architecture
   - Internal design and exception hierarchy
   - Packet building and parsing internals
   - Usage examples and performance notes

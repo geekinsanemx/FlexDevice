@@ -14,7 +14,6 @@
 extern SemaphoreHandle_t serial_mutex;
 
 bool binary_protocol_active = false;
-uint8_t binary_event_seq = 0;
 
 static void send_packet_via_serial(const binary_packet_t *pkt) {
     if (pkt == nullptr) {
@@ -45,13 +44,13 @@ static void send_packet_via_serial(const binary_packet_t *pkt) {
             }
         }
         *cursor = '\0';
-        logMessagef("BINARY: EVT opcode=0x%02X seq=%u COBS head[%u]=%s len=%u",
-                    pkt->opcode, pkt->seq, (unsigned)preview_len, head_hex, (unsigned)cobs_len);
+        logMessagef("BINARY: EVT opcode=0x%02X COBS head[%u]=%s len=%u",
+                    pkt->opcode, (unsigned)preview_len, head_hex, (unsigned)cobs_len);
     }
 
     if (cobs_len < PACKET_FIXED_SIZE) {
-        logMessagef("BINARY: COBS truncated len=%u type=0x%02X opcode=0x%02X seq=%u",
-                    (unsigned)cobs_len, pkt->type, pkt->opcode, pkt->seq);
+        logMessagef("BINARY: COBS truncated len=%u type=0x%02X opcode=0x%02X",
+                    (unsigned)cobs_len, pkt->type, pkt->opcode);
     }
 #endif
 
@@ -60,8 +59,8 @@ static void send_packet_via_serial(const binary_packet_t *pkt) {
         size_t written = Serial.write(cobs_buffer, cobs_len);
 #ifdef ENABLE_DEBUG
         if (written != cobs_len) {
-            logMessagef("BINARY: Serial write short (expected=%u wrote=%u type=0x%02X seq=%u)",
-                        (unsigned)cobs_len, (unsigned)written, pkt->type, pkt->seq);
+            logMessagef("BINARY: Serial write short (expected=%u wrote=%u type=0x%02X)",
+                        (unsigned)cobs_len, (unsigned)written, pkt->type);
         }
 #endif
         Serial.flush();
@@ -75,7 +74,7 @@ void send_evt_tx_queued(const uint8_t uuid[16], uint8_t pos) {
     }
 
     binary_packet_t pkt;
-    build_evt_tx_queued(&pkt, binary_event_seq++, uuid, pos);
+    build_evt_tx_queued(&pkt, uuid, pos);
     send_packet_via_serial(&pkt);
 }
 
@@ -85,7 +84,7 @@ void send_evt_tx_start(const uint8_t uuid[16]) {
     }
 
     binary_packet_t pkt;
-    build_evt_tx_start(&pkt, binary_event_seq++, uuid);
+    build_evt_tx_start(&pkt, uuid);
     send_packet_via_serial(&pkt);
 }
 
@@ -95,7 +94,7 @@ void send_evt_tx_done(const uint8_t uuid[16], uint8_t result) {
     }
 
     binary_packet_t pkt;
-    build_evt_tx_done(&pkt, binary_event_seq++, uuid, result);
+    build_evt_tx_done(&pkt, uuid, result);
     send_packet_via_serial(&pkt);
 }
 
@@ -105,7 +104,7 @@ void send_evt_tx_failed(const uint8_t uuid[16], uint8_t error) {
     }
 
     binary_packet_t pkt;
-    build_evt_tx_failed(&pkt, binary_event_seq++, uuid, error);
+    build_evt_tx_failed(&pkt, uuid, error);
     send_packet_via_serial(&pkt);
 }
 
@@ -120,7 +119,6 @@ void send_evt_boot() {
     pkt.type = PKT_TYPE_EVT;
     pkt.opcode = EVT_BOOT;
     pkt.flags = 0x00;
-    pkt.seq = binary_event_seq++;
     memset(pkt.uuid, 0, 16);
     pkt.payload_len = 0;
 
@@ -141,7 +139,6 @@ void send_evt_battery_low(uint8_t battery_pct) {
     pkt.type = PKT_TYPE_EVT;
     pkt.opcode = EVT_BATTERY_LOW;
     pkt.flags = 0x00;
-    pkt.seq = binary_event_seq++;
     memset(pkt.uuid, 0, 16);
     pkt.payload_len = htons_custom(1);
     pkt.payload[0] = battery_pct;
@@ -163,7 +160,6 @@ void send_evt_power_disconnected() {
     pkt.type = PKT_TYPE_EVT;
     pkt.opcode = EVT_POWER_DISCONNECTED;
     pkt.flags = 0x00;
-    pkt.seq = binary_event_seq++;
     memset(pkt.uuid, 0, 16);
     pkt.payload_len = 0;
 
@@ -173,37 +169,37 @@ void send_evt_power_disconnected() {
     send_packet_via_serial(&pkt);
 }
 
-void send_binary_response_ack(uint8_t seq, const uint8_t uuid[16], uint8_t status) {
+void send_binary_response_ack(const uint8_t uuid[16], uint8_t status) {
     if (!binary_protocol_active || uuid == nullptr) {
         return;
     }
 
     binary_packet_t pkt;
-    build_rsp_ack(&pkt, seq, uuid, status);
+    build_rsp_ack(&pkt, uuid, status);
     send_packet_via_serial(&pkt);
 }
 
-void send_binary_response_nack(uint8_t seq, const uint8_t uuid[16], uint8_t status) {
+void send_binary_response_nack(const uint8_t uuid[16], uint8_t status) {
     if (!binary_protocol_active || uuid == nullptr) {
         return;
     }
 
     binary_packet_t pkt;
-    build_rsp_nack(&pkt, seq, uuid, status);
+    build_rsp_nack(&pkt, uuid, status);
     send_packet_via_serial(&pkt);
 }
 
-void send_binary_response_pong(uint8_t seq, const uint8_t uuid[16]) {
+void send_binary_response_pong(const uint8_t uuid[16]) {
     if (!binary_protocol_active || uuid == nullptr) {
         return;
     }
 
     binary_packet_t pkt;
-    build_rsp_pong(&pkt, seq, uuid);
+    build_rsp_pong(&pkt, uuid);
     send_packet_via_serial(&pkt);
 }
 
-void send_binary_response_status(uint8_t seq, const uint8_t uuid[16],
+void send_binary_response_status(const uint8_t uuid[16],
                                  uint8_t device_state, uint8_t queue_count,
                                  uint8_t battery_pct, uint16_t battery_mv,
                                  float frequency, int8_t power) {
@@ -220,6 +216,6 @@ void send_binary_response_status(uint8_t seq, const uint8_t uuid[16],
     status.power = power;
 
     binary_packet_t pkt;
-    build_rsp_status(&pkt, seq, uuid, &status);
+    build_rsp_status(&pkt, uuid, &status);
     send_packet_via_serial(&pkt);
 }
