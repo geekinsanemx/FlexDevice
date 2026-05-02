@@ -3,7 +3,7 @@
 Python module for FLEX-FSK-TX v2.5 binary protocol over UART.
 
 **Version:** v2.5.6 (compatible with firmware v2.5.5+)
-**Note:** For reliable `-w` (wait for TX_DONE) operation, firmware v2.5.6+ is required.
+**Note:** Firmware v2.5.6+ silences ASCII logs during binary sessions, so host readers can treat the stream as deterministic frames.
 
 ## Architecture
 
@@ -233,8 +233,8 @@ self.ser = serial.Serial(
     bytesize=serial.EIGHTBITS,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
-    timeout=0.1,          # Short read timeout for non-blocking
-    write_timeout=1.0
+    timeout=0.05,         # Short read timeout for non-blocking
+    write_timeout=2.0
 )
 self.ser.reset_input_buffer()
 self.ser.reset_output_buffer()
@@ -256,24 +256,10 @@ with FlexDevice('/dev/ttyUSB0') as dev:
 ### 8. Frame Reception
 
 **_read_frame(timeout_sec) → bytes**:
-- **Mixed ASCII/Binary stream handling**:
-  - Reads bytes until 0x00 delimiter
-  - Detects ASCII lines (printable + `\n`) and prints them if `verbose=True`
-  - Switches to binary mode on first non-printable byte
-  - Returns complete COBS frame (including 0x00)
-- **Timeout**: Uses `time.time()` for elapsed time tracking
-- **Non-blocking**: pyserial `read(1)` with short timeout, retries until delimiter or timeout
-- Raises `FlexTimeoutError` if no complete frame within timeout
-
-**ASCII Line Detection**:
-```python
-if 0x20 <= byte <= 0x7E:  # Printable ASCII
-    ascii_buffer.append(byte)
-elif byte == ord('\n'):
-    if verbose:
-        print(f"DEVICE: {ascii_buffer.decode('utf-8', errors='replace')}")
-    ascii_buffer.clear()
-```
+- Drains any leading ASCII (legacy firmware logs) and, if `verbose`, prints them as `"DEVICE: …"`.
+- After the first non-printable byte, treats the stream purely as a COBS frame and buffers until the `0x00` delimiter.
+- Uses `time.time()` for timeout tracking and retries on empty reads (`pyserial` with short timeout).
+- Raises `FlexTimeoutError` if no complete frame is received within `timeout_sec`.
 
 ### 9. Packet Parsing
 
@@ -358,14 +344,13 @@ self.last_response  # dict of last parsed response/event packet
 **UUID Matching Logic**:
 - Commands generate random 16-byte UUID
 - Device copies UUID from command to response
-- `_read_response(expected_uuid, timeout)` loops:
+- API methods call `_recv_packet()` and apply UUID checks in the command flow:
   1. Read frame with `_read_frame()`
   2. Decode COBS → raw packet
   3. Parse packet → dict
-  4. Check `packet['uuid'] == expected_uuid`
-  5. If match: return packet
-  6. If mismatch: continue reading (async event from previous command)
-  7. If timeout: raise `FlexTimeoutError`
+  4. Compare packet UUID with command UUID when required
+  5. Ignore unrelated async frames
+  6. Timeout raises `FlexTimeoutError`
 
 **Sequence Numbers**:
 - Incremented for every sent packet: `self.seq = (self.seq + 1) & 0xFF`
@@ -523,6 +508,6 @@ print(f"Last response: {dev.last_response}")
 
 ## See Also
 
-- [../docs/BINARY_PROTOCOL.md](../docs/BINARY_PROTOCOL.md) — Protocol specification
-- [../docs/COBS_ENCAPSULATION.md](../docs/COBS_ENCAPSULATION.md) — Framing details
-- [example_python.py](example_python.py) — Complete CLI example
+- [../../../docs/BINARY_PROTOCOL.md](../../../docs/BINARY_PROTOCOL.md) — Protocol specification
+- [../../../docs/COBS_ENCAPSULATION.md](../../../docs/COBS_ENCAPSULATION.md) — Framing details
+- [example/example_python.py](example/example_python.py) — Complete CLI example

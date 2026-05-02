@@ -3,7 +3,7 @@
 Single-header C library for FLEX-FSK-TX v2.5 binary protocol over UART.
 
 **Version:** v2.5.6 (compatible with firmware v2.5.5+)
-**Note:** For reliable `-w` (wait for TX_DONE) operation, firmware v2.5.6+ is recommended.
+**Note:** Firmware v2.5.6+ silences ASCII logs while the binary protocol is active, so host readers can consume frames deterministically.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ Application Code
        ↓
 Public API (flex_send_msg, flex_ping, flex_get_status)
        ↓
-Packet Builder (_flex_build_packet)
+Packet Builder (_flex_build_cmd_send_flex / _flex_build_cmd_ping / _flex_build_cmd_get_status)
        ↓
 COBS Encoder (_flex_cobs_encode)
        ↓
@@ -26,7 +26,7 @@ COBS Decoder (_flex_cobs_decode)
        ↓
 CRC Validator (_flex_crc16)
        ↓
-Packet Parser (_flex_parse_packet)
+Packet Decode + Parse (_flex_recv_packet)
        ↓
 Response Matcher (UUID correlation)
        ↓
@@ -66,10 +66,9 @@ typedef struct {
 
 ### 2. Packet Building
 
-**_flex_build_packet()**:
+**Packet build helpers** (`_flex_build_cmd_send_flex`, `_flex_build_cmd_ping`, `_flex_build_cmd_get_status`):
 - Allocates 512-byte raw packet buffer
-- Writes magic bytes 0x46 0x4C ('FL')
-- Sets type, opcode, flags, seq
+- Writes packet type/opcode/flags/seq at bytes [0-3]
 - Copies 16-byte UUID
 - Writes payload length (big-endian uint16 at offset 20)
 - Copies payload data (max 480 bytes at offset 22)
@@ -90,7 +89,7 @@ CMD_SEND_FLEX (15 fixed bytes + message):
 [12]    tx_power     (int8)
 [13]    mail_drop    (uint8, 0/1)
 [14]    msg_len      (uint8)
-[15+]   message      (UTF-8 text, max 255 bytes)
+[15+]   message      (UTF-8 text, protocol max 255; firmware may truncate to 248 for FLEX)
 ```
 
 CMD_PING: Empty payload
@@ -153,18 +152,14 @@ Test vector: `"123456789"` → `0x29B1`
 ### 7. Frame Reception
 
 **_flex_read_frame(timeout_ms) → frame_length**:
-- **Mixed ASCII/Binary stream handling**:
-  - Accumulates bytes until 0x00 delimiter
-  - Detects ASCII lines (printable + `\n`) and prints them as "DEVICE: ..."
-  - Switches to binary mode on first non-printable, non-newline byte
-  - Returns COBS frame (including 0x00) when delimiter found
-- **Timeout**: Uses `gettimeofday()` for elapsed time check
-- **Non-blocking reads**: Retries with 1ms sleep on EAGAIN/EWOULDBLOCK
-- Returns frame length on success, -1 on timeout
+- Reads bytes until it encounters the first non-printable value, draining any leading ASCII lines (printed as `"DEVICE: …"` for old firmware).
+- Once a binary byte is seen, it treats the stream as a COBS frame and collects bytes until the `0x00` delimiter.
+- Uses `gettimeofday()` for timeout accounting and retries on `EAGAIN` / `EWOULDBLOCK`.
+- Returns frame length on success, `-1` on timeout or error.
 
 ### 8. Packet Parsing
 
-**_flex_parse_packet(raw[512])**:
+**_flex_recv_packet(...)** decodes, validates, and parses one packet:
 - Validates CRC (compare packet[510-511] with computed CRC)
 - Extracts fields:
   - Type/opcode/flags/seq: bytes [0-3]
@@ -338,6 +333,6 @@ Debug with `dev.verbose = 1` to see packet hex dumps and device ASCII output.
 
 ## See Also
 
-- [../docs/BINARY_PROTOCOL.md](../docs/BINARY_PROTOCOL.md) — Protocol specification
-- [../docs/COBS_ENCAPSULATION.md](../docs/COBS_ENCAPSULATION.md) — Framing details
-- [example.c](example.c) — Complete CLI example
+- [../../../docs/BINARY_PROTOCOL.md](../../../docs/BINARY_PROTOCOL.md) — Protocol specification
+- [../../../docs/COBS_ENCAPSULATION.md](../../../docs/COBS_ENCAPSULATION.md) — Framing details
+- [example/example_gcc.c](example/example_gcc.c) — Complete CLI example

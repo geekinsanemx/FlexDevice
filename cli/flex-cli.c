@@ -5,12 +5,12 @@
  * Uses FlexDevice.h library.
  *
  * Usage:
- *   flex-binary-client [OPTIONS] CAPCODE MESSAGE
+ *   flex-cli [OPTIONS] CAPCODE MESSAGE
  *
  * Compile:
- *   gcc -o flex-binary-client flex-binary-client.c -O2 -Wall
+ *   gcc -o flex-cli flex-cli.c -O2 -Wall
  *
- * v2.5.3
+ * v2.5.6
  */
 
 #include <stdio.h>
@@ -18,7 +18,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <getopt.h>
-#include "libflex_binary/FlexDevice.h"
+#include "libraries/gcc/FlexDevice.h"
 
 #define CURRENT_VERSION "v2.5.6"
 

@@ -8,7 +8,7 @@ for the Python pieces.
 cli/
 ├── flex-cli.c                 # Stand-alone CLI source
 ├── flex-cli                   # Prebuilt ELF (optional)
-├── libflex_binary/            # C header-only library + GCC example
+├── libraries/gcc/             # C header-only library
 │   ├── FlexDevice.h
 │   ├── example_gcc.c
 │   └── example_gcc

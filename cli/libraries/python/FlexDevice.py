@@ -33,7 +33,7 @@ PACKET_PAYLOAD_SIZE  = 480
 PACKET_CRC_OFFSET    = 510
 PACKET_TS_OFFSET     = 502
 MAX_MESSAGE_PROTO    = 255
-CMD_SEND_ARGS_SIZE   = 11
+CMD_SEND_ARGS_SIZE   = 15
 
 PKT_TYPE_CMD = 0x01
 PKT_TYPE_RSP = 0x02
@@ -538,10 +538,10 @@ class FlexDevice:
         Read one COBS frame (up to and including 0x00 delimiter).
         Drains and prints ASCII lines from device; returns binary frame.
         """
-        frame     = bytearray()
+        frame = bytearray()
         ascii_buf = bytearray()
-        in_binary = False
-        deadline  = time.time() + timeout_ms / 1000.0
+        in_frame = False
+        deadline = time.time() + timeout_ms / 1000.0
 
         while True:
             if time.time() > deadline:
@@ -553,19 +553,23 @@ class FlexDevice:
 
             byte = b[0]
 
-            if not in_binary:
-                if byte == ord('\n'):
-                    line = ascii_buf.decode('ascii', errors='replace').strip()
-                    if line:
-                        print(f"DEVICE: {line}")
+            if not in_frame:
+                if byte == 0x0D:
+                    continue
+                if byte == 0x0A:
+                    if ascii_buf:
+                        line = ascii_buf.decode('ascii', errors='replace')
+                        line = line.strip()
+                        if line:
+                            print(f"DEVICE: {line}")
                     ascii_buf.clear()
                     continue
-                if byte == ord('\r'):
-                    continue
                 if 0x20 <= byte <= 0x7E:
-                    ascii_buf.append(byte)
+                    if len(ascii_buf) < 512:
+                        ascii_buf.append(byte)
                     continue
-                in_binary = True
+                in_frame = True
+                frame.clear()
 
             frame.append(byte)
             if byte == 0x00:

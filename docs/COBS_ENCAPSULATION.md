@@ -1,5 +1,7 @@
-# COBS Encapsulation
+# COBS Encapsulation (Supplemental Reference)
 ## FLEX-FSK-TX Binary Protocol
+
+> **Note**: This document provides extended COBS implementation details. For the complete binary protocol specification including packet structure, opcodes, and communication patterns, see [README.md](../README.md) or [BINARY_PROTOCOL.md](BINARY_PROTOCOL.md).
 
 ---
 
