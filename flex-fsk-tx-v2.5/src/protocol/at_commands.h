@@ -9,7 +9,7 @@
 #define AT_COMMANDS_H
 
 #include <Arduino.h>
-#include "config.h"
+#include "../core/config.h"
 
 // =============================================================================
 // AT PROTOCOL STATE

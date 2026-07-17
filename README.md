@@ -304,9 +304,16 @@ OK
 
 ### Compilation
 
-#### Using flex-build-upload.sh script:
+#### Using scripts/flex-build-upload.sh:
 ```bash
-flex-build-upload.sh -t heltec -u flex-fsk-tx-v2.5.ino
+./scripts/flex-build-upload.sh -t heltec -u flex-fsk-tx-v2.5/flex-fsk-tx-v2.5.ino
+./scripts/flex-build-upload.sh -t ttgo -u flex-fsk-tx-v2.5/flex-fsk-tx-v2.5.ino
+```
+
+#### Using PlatformIO:
+```bash
+pio run -e heltec                       # compile-only
+pio run -e ttgo -t upload -p /dev/ttyACM0
 ```
 
 #### Using arduino-cli directly:
@@ -314,12 +321,12 @@ flex-build-upload.sh -t heltec -u flex-fsk-tx-v2.5.ino
 # Heltec WiFi LoRa 32 V2
 arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V2 \
   --build-property compiler.cpp.extra_flags=-DHELTEC_WIFI_LORA32_V2 \
-  flex-fsk-tx-v2.5.ino
+  flex-fsk-tx-v2.5/flex-fsk-tx-v2.5.ino
 
 arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V2
 
 # TTGO LoRa32-OLED
-arduino-cli compile --fqbn esp32:esp32:ttgo-lora32 flex-fsk-tx-v2.5.ino
+arduino-cli compile --fqbn esp32:esp32:ttgo-lora32 flex-fsk-tx-v2.5/flex-fsk-tx-v2.5.ino
 arduino-cli upload -p /dev/ttyACM0 --fqbn esp32:esp32:ttgo-lora32
 ```
 

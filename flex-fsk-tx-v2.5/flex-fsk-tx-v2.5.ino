@@ -1,51 +1,11 @@
 /*
  * ============================================================================
- * FLEX Paging Message Transmitter - v2.5.6
+ * FLEX Paging Message Transmitter
  * ============================================================================
  *
  * UART/Serial Dual-Mode Interface: AT Commands + Binary Protocol
  *
- * CHANGELOG v2.5.6 (2026-04-10):
- * - Fixed Serial TX buffer overflow causing packet truncation
- * - Increased TX buffer from 256 to 1024 bytes for COBS frames (514 bytes)
- * - Removed ASCII logs from binary event functions to prevent corruption
- * - Added Serial.flush() before binary packet writes
- * - Fixed -w flag: clients now properly receive TX_DONE events
- *
- * CHANGELOG v2.5.5 (2026-04-09):
- * - Fixed capcode field size from 4 bytes to 8 bytes (uint32_t → uint64_t)
- * - Binary protocol now supports full FLEX capcode range (up to 4,297,068,542)
- * - Updated CMD_SEND_FLEX payload offsets (frequency: 8-11, power: 12, etc.)
- * - Breaking change: clients must update to send 8-byte capcodes
- *
- * CHANGELOG v2.5.4 (2026-04-05):
- * - Added AT+CCLK command for manual clock setting
- * - Format: AT+CCLK=<unix_timestamp>,<timezone_offset>
- * - Query: AT+CCLK? returns timestamp, timezone, and human-readable datetime
- * - Auto-syncs RTC if available
- * - Timezone sync from binary protocol packets
- * - Fixed segfault in client with invalid timestamps
- * - Latency measurement in verbose mode
- *
- * CHANGELOG v2.5.3 (2026-04-05):
- * - Added timestamp header (8 bytes) in binary packets
- * - Reduced payload from 486 to 478 bytes for timestamp
- * - Client auto-includes system timestamp in packets
- * - ESP32 responds with its timestamp (latency measurement)
- * - Auto clock drift adjustment (> 1 sec) with RTC sync
- * - CRC remains at bytes 510-511 (unchanged)
- *
- * CHANGELOG v2.5.2 (2026-04-05):
- * - Enabled UUID for msg_id consistency with MQTT msg_id tracking
- * - Binary packet fixed size to 512 bytes
- * - Code cleanup: removed inline comments
- *
- * CHANGELOG v2.5.1 (2026-04-04):
- * - Added binary protocol support (COBS framing, CRC16-CCITT)
- * - Added dual-mode detection (AT commands + binary protocol)
- * - Added message ID correlation for async operations
- * - Added binary events (TX_QUEUED, TX_START, TX_DONE, TX_FAILED)
- * - 100% backward compatible with AT command mode
+ * See src/version.h for FIRMWARE_VERSION and the full per-release changelog.
  *
  * Features:
  * - Dual-mode: AT command protocol + Binary protocol
@@ -90,18 +50,18 @@
  */
 
 #include <WiFi.h>  // WiFi stack init only
-#include "config.h"
-#include "boards/boards.h"
-#include "storage.h"
-#include "logging.h"
-#include "hardware.h"
-#include "display.h"
-#include "flex_protocol.h"
-#include "transmission.h"
-#include "at_commands.h"
-#include "binary_events.h"
-#include "uuid.h"
-#include "utils.h"
+#include "src/core/config.h"
+#include "include/boards/boards.h"
+#include "src/core/storage.h"
+#include "src/core/logging.h"
+#include "src/core/hardware.h"
+#include "src/core/display.h"
+#include "src/protocol/flex_protocol.h"
+#include "src/protocol/transmission.h"
+#include "src/protocol/at_commands.h"
+#include "src/binary/binary_events.h"
+#include "src/binary/uuid.h"
+#include "src/core/utils.h"
 
 // =============================================================================
 // SERIAL MUTEX (prevents race between ASCII logs and binary packets)
@@ -236,7 +196,7 @@ void setup() {
     display_init();
     battery_init();
 
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
     rtc_init();
 #endif
 

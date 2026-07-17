@@ -6,11 +6,12 @@
  */
 
 #include "flex_protocol.h"
-#include "config.h"
-#include "logging.h"
-#include "hardware.h"
-#include "tinyflex/tinyflex.h"
-#include "uuid.h"
+#include "../core/config.h"
+#include "../core/logging.h"
+#include "../core/hardware.h"
+#include "../../include/tinyflex/tinyflex.h"
+#include "../binary/uuid.h"
+#include "transmission.h"
 
 // =============================================================================
 // GLOBAL VARIABLES
@@ -85,6 +86,10 @@ bool queue_add_message_with_uuid(const uint8_t uuid[16], uint64_t capcode,
     queue_count++;
 
     portEXIT_CRITICAL(&queue_mutex);
+
+    if (transmission_task_handle != NULL) {
+        xTaskNotifyGive(transmission_task_handle);
+    }
 
     char uuid_str[37];
     uuid_to_string(uuid, uuid_str);

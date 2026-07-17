@@ -9,8 +9,7 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-
-#define FIRMWARE_VERSION "v2.5.6"
+#include "../version.h"
 
 // =============================================================================
 // BOARD SELECTION
@@ -22,7 +21,10 @@
 // =============================================================================
 // COMPILATION FLAGS
 // =============================================================================
-#define RTC_ENABLED false       // Enable DS3231 RTC support
+// The following optional subsystem is DISABLED by default. Enable it via a
+// compiler command-line define, e.g. platformio.ini's -debug environments or
+// scripts/flex-build-upload.sh:
+//   -DENABLE_RTC         Enable DS3231 RTC support
 // #define ENABLE_DEBUG         // Uncomment for verbose debug output
 
 // =============================================================================

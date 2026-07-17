@@ -7,20 +7,20 @@
  */
 
 #include "at_commands.h"
-#include "config.h"
-#include "logging.h"
-#include "storage.h"
-#include "hardware.h"
-#include "display.h"
+#include "../core/config.h"
+#include "../core/logging.h"
+#include "../core/storage.h"
+#include "../core/hardware.h"
+#include "../core/display.h"
 #include "flex_protocol.h"
-#include "utils.h"
-#include "boards/boards.h"
-#include "binary_packet.h"
-#include "binary_handlers.h"
-#include "binary_events.h"
-#include "cobs.h"
-#include "crc16.h"
-#include "uuid.h"
+#include "../core/utils.h"
+#include "../../include/boards/boards.h"
+#include "../binary/binary_packet.h"
+#include "../binary/binary_handlers.h"
+#include "../binary/binary_events.h"
+#include "../binary/cobs.h"
+#include "../binary/crc16.h"
+#include "../binary/uuid.h"
 
 // =============================================================================
 // GLOBAL VARIABLES
@@ -560,7 +560,7 @@ bool at_parse_command(char* cmd_buffer) {
 
             system_time_initialized = true;
 
-            #if RTC_ENABLED
+            #ifdef ENABLE_RTC
             // Sync RTC if available
             if (rtc_available) {
                 rtc.adjust(DateTime((uint32_t)timestamp));
@@ -834,7 +834,7 @@ void handle_binary_packet(uint8_t *cobs_data, size_t len) {
 
             system_time_initialized = true;
 
-            #if RTC_ENABLED
+            #ifdef ENABLE_RTC
             // Sync RTC if flag active and hardware available
             if ((pkt.ts.flags & TS_FLAG_SYNC_RTC) && rtc_available) {
                 rtc.adjust(DateTime((uint32_t)host_timestamp));

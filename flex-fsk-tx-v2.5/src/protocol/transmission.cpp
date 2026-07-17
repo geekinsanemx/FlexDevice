@@ -4,21 +4,22 @@
  */
 
 #include "transmission.h"
-#include "config.h"
+#include "../core/config.h"
 #include "flex_protocol.h"
-#include "hardware.h"
-#include "logging.h"
-#include "display.h"
-#include "boards/boards.h"
-#include "binary_events.h"
-#include "binary_packet.h"
-#include "uuid.h"
+#include "../core/hardware.h"
+#include "../core/logging.h"
+#include "../core/display.h"
+#include "../../include/boards/boards.h"
+#include "../binary/binary_events.h"
+#include "../binary/binary_packet.h"
+#include "../binary/uuid.h"
 
 // =============================================================================
 // GLOBAL VARIABLES
 // =============================================================================
 TaskHandle_t transmission_task_handle = NULL;
 volatile bool transmission_task_running = false;
+volatile unsigned long transmission_last_heartbeat = 0;
 
 extern uint64_t current_tx_capcode;
 
@@ -40,11 +41,14 @@ void transmission_task(void* parameter) {
     transmission_task_running = true;
 
     while (true) {
-        if (!queue_is_empty()) {
+        transmission_last_heartbeat = millis();
+
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5000));
+
+        while (true) {
             QueuedMessage* msg = queue_get_next_message();
             if (msg == nullptr) {
-                delay(10);
-                continue;
+                break;
             }
 
             uint8_t msg_uuid[16];
@@ -128,8 +132,6 @@ void transmission_task(void* parameter) {
 
             queue_remove_message();
         }
-
-        delay(10);
     }
 }
 
@@ -146,7 +148,7 @@ void transmission_init() {
         "TransmissionTask",
         4096,
         NULL,
-        1,
+        configMAX_PRIORITIES - 1,
         &transmission_task_handle,
         0
     );
@@ -158,15 +160,19 @@ void transmission_init() {
 // TASK HEALTH MONITORING
 // =============================================================================
 void check_transmission_task_health() {
-    if (transmission_task_handle != NULL) {
-        eTaskState state = eTaskGetState(transmission_task_handle);
-
-        if (state == eDeleted || state == eInvalid) {
-            logMessage("TRANSMISSION: Task health check FAILED - task is dead");
-            transmission_task_running = false;
-        }
-    } else {
+    if (transmission_task_handle == NULL) {
         logMessage("TRANSMISSION: Task handle is NULL");
         transmission_task_running = false;
+        return;
+    }
+
+    static unsigned long last_check = 0;
+
+    if (millis() - last_check > 10000) {
+        if (millis() - transmission_last_heartbeat > 15000) {
+            logMessage("TRANSMISSION: Task health check FAILED - unresponsive for 15s");
+            transmission_task_running = false;
+        }
+        last_check = millis();
     }
 }

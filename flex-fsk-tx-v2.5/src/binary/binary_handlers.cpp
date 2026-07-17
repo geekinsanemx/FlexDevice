@@ -7,13 +7,13 @@
 #include "binary_events.h"
 #include "binary_packet.h"
 #include "uuid.h"
-#include "flex_protocol.h"
-#include "hardware.h"
-#include "display.h"
-#include "utils.h"
-#include "logging.h"
-#include "config.h"
-#include "boards/boards.h"
+#include "../protocol/flex_protocol.h"
+#include "../core/hardware.h"
+#include "../core/display.h"
+#include "../core/utils.h"
+#include "../core/logging.h"
+#include "../core/config.h"
+#include "../../include/boards/boards.h"
 
 extern volatile int queue_count;
 extern float current_tx_frequency;

@@ -7,13 +7,13 @@
 #include "hardware.h"
 #include "storage.h"
 #include "logging.h"
-#include "boards/boards.h"
+#include "../../include/boards/boards.h"
 #include "esp_task_wdt.h"
 #include <Wire.h>
 #include <SPI.h>
 #include <time.h>
 
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
 #include <RTClib.h>
 #endif
 
@@ -23,7 +23,7 @@
 SX1276 radio = new Module(LORA_CS_PIN, LORA_IRQ_PIN, LORA_RST_PIN, LORA_GPIO_PIN);
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
   RTC_DS3231 rtc;
   bool rtc_available = false;
 #endif
@@ -211,7 +211,7 @@ float readBatteryVoltage() {
 // =============================================================================
 // RTC (DS3231)
 // =============================================================================
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
 static void rtc_sync_system_time() {
     if (!rtc_available) return;
 

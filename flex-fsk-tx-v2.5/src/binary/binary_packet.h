@@ -20,7 +20,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "config.h"
+#include "../core/config.h"
 
 // =============================================================================
 // TIMESTAMP HEADER STRUCTURE (8 bytes)

@@ -8,7 +8,7 @@
 #include "uuid.h"
 #include "cobs.h"
 #include "crc16.h"
-#include "logging.h"
+#include "../core/logging.h"
 
 // Serial mutex (extern from logging.h)
 extern SemaphoreHandle_t serial_mutex;
