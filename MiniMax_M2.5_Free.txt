@@ -1,0 +1,391 @@
+================================================================================
+FLEX DEVICE BINARY PROTOCOL ANALYSIS REPORT
+================================================================================
+Generated: 2026-05-01
+Target: FLEX-FSK-TX v2.5.6 / FlexDevice
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+1. EXECUTIVE SUMMARY
+2. DOCUMENTATION SYNC STATUS
+3. PROTOCOL CONSTANTS COMPARISON
+4. PAYLOAD LAYOUT VERIFICATION
+5. CRC16-CCITT ANALYSIS
+6. COBS IMPLEMENTATION ANALYSIS
+7. FIRMWARE ANALYSIS
+8. CLI/LIBRARIES ANALYSIS
+9. EDGE CASES & FAILURE POINTS
+10. RECOMMENDATIONS
+11. VERSION HISTORY
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+Status: MOSTLY CONSISTENT - Minor discrepancies found
+
+Overall Protocol Reliability: PARTIALLY FAILURE-PROOF
+- Has CRC validation: YES
+- Has COBS framing: YES
+- Missing frame sync: YES (no magic bytes validation)
+- Missing packet type validation: PARTIAL
+- Missing sequence validation: YES
+
+Components:
+- Documentation: SYNCED to v2.5.6
+- Firmware: CONSISTENT with protocol spec
+- C Library: MATCHES firmware
+- Python Library: MINOR ISSUES (2 constant values)
+
+================================================================================
+2. DOCUMENTATION SYNC STATUS
+================================================================================
+
+Files Analyzed:
+- docs/BINARY_PROTOCOL.md (UPDATED to v2.5.6)
+- docs/COBS_ENCAPSULATION.md (marked as supplemental)
+- README.md (fixed typo - capcode 4->8 bytes)
+- docs/AT_COMMANDS.md (current)
+
+Changes Made:
+1. docs/BINARY_PROTOCOL.md: Updated from v2.5.4 to v2.5.6
+   - Fixed all opcode values to match implementation
+   - Fixed CMD_SEND_FLEX capcode from 4 to 8 bytes
+   - Updated version history with v2.5.5 and v2.5.6 changes
+   - Cleaned up old unimplemented command documentation
+
+2. docs/COBS_ENCAPSULATION.md: Marked as supplemental reference
+   - Added note pointing to README.md for main spec
+
+3. README.md: Fixed typo
+   - Line 186: capcode(4) -> capcode(8)
+
+================================================================================
+3. PROTOCOL CONSTANTS COMPARISON
+================================================================================
+
+3.1 Packet Structure
++-------------------+---------+---------+--------+--------+
+| Constant          | Firmware| C Lib   | Python | Docs   |
++-------------------+---------+---------+--------+--------+
+| PACKET_FIXED_SIZE | 512     | 512     | 512    | 512    |
+| PACKET_PAYLOAD    | 480     | 480     | 480    | 480    |
+| PACKET_CRC_OFFSET | 510     | 510     | 510    | 510    |
+| PACKET_TS_OFFSET  | 502     | 502     | 502    | 502    |
+| MAX_MESSAGE       | 248     | 248     | 255⚠️  | 248    |
++-------------------+---------+---------+--------+--------+
+
+⚠️ Python library defines 255 but should be 248
+
+3.2 Packet Types
++-------------+---------+---------+--------+--------+
+| Type        | Firmware| C Lib   | Python | Docs   |
++-------------+---------+---------+--------+--------+
+| PKT_TYPE_CMD| 0x01    | 0x01    | 0x01   | 0x01   |
+| PKT_TYPE_RSP| 0x02    | 0x02    | 0x02   | 0x02   |
+| PKT_TYPE_EVT| 0x03    | 0x03    | 0x03   | 0x03   |
++-------------+---------+---------+--------+--------+
+
+3.3 Command Opcodes
++-----------------+---------+---------+--------+--------+
+| Command         | Firmware| C Lib   | Python | Docs   |
++-----------------+---------+---------+--------+--------+
+| CMD_SEND_FLEX   | 0x01    | 0x01    | 0x01   | 0x01   |
+| CMD_GET_STATUS  | 0x02    | 0x02    | 0x02   | 0x02   |
+| CMD_ABORT       | 0x03    | -       | -      | 0x03   |
+| CMD_PING        | 0x06    | 0x06    | 0x06   | 0x06   |
++-----------------+---------+---------+--------+--------+
+
+3.4 Response Opcodes
++-----------------+---------+---------+--------+--------+
+| Response        | Firmware| C Lib   | Python | Docs   |
++-----------------+---------+---------+--------+--------+
+| RSP_ACK         | 0x01    | 0x01    | 0x01   | 0x01   |
+| RSP_NACK        | 0x02    | 0x02    | 0x02   | 0x02   |
+| RSP_STATUS      | 0x03    | 0x03    | 0x03   | 0x03   |
+| RSP_PONG        | 0x05    | 0x05    | 0x05   | 0x05   |
++-----------------+---------+---------+--------+--------+
+
+3.5 Event Opcodes
++-------------+---------+---------+--------+--------+
+| Event       | Firmware| C Lib   | Python | Docs   |
++-------------+---------+---------+--------+--------+
+| EVT_TX_QUEUED| 0x01   | 0x01    | 0x01   | 0x01   |
+| EVT_TX_START | 0x02   | 0x02    | 0x02   | 0x02   |
+| EVT_TX_DONE  | 0x03   | 0x03    | 0x03   | 0x03   |
+| EVT_TX_FAILED| 0x04   | 0x04    | 0x04   | 0x04   |
++-------------+---------+---------+--------+--------+
+
+================================================================================
+4. PAYLOAD LAYOUT VERIFICATION
+================================================================================
+
+4.1 CMD_SEND_FLEX Payload (Offset 22 in packet)
++------+------+-----------+--------+----------------------------+
+| Off  | Size | Field     | Type   | Notes                      |
++------+------+-----------+--------+----------------------------+
+| 0    | 8    | capcode   | uint64 | little-endian, max 4.3B    |
+| 8    | 4    | frequency | float  | IEEE 754, little-endian    |
+| 12   | 1    | power     | int8_t | TX power in dBm            |
+| 13   | 1    | maildrop  | uint8_t| 0=normal, 1=maildrop      |
+| 14   | 1    | msg_len   | uint8_t| Message length (0-248)    |
+| 15+  | N    | message   | char[] | UTF-8, max 248 chars       |
++------+------+-----------+--------+----------------------------+
+
+VERDICT: All implementations match perfectly ✓
+
+4.2 RSP_STATUS Payload (Response to CMD_GET_STATUS)
++------+------+-----------+--------+----------------------------+
+| Off  | Size | Field     | Type   | Notes                      |
++------+------+-----------+--------+----------------------------+
+| 0    | 1    | device_state| uint8| 0=IDLE, 1=TX, 2=ERR       |
+| 1    | 1    | queue_count | uint8 | Messages in queue          |
+| 2    | 1    | battery_pct | uint8 | Battery percentage         |
+| 3    | 2    | battery_mv  | uint16| Battery voltage (mV)      |
+| 5    | 4    | frequency   | float | Current TX frequency      |
+| 9    | 1    | power       | int8_t| Current TX power          |
++------+------+-----------+--------+----------------------------+
+
+VERDICT: All implementations match perfectly ✓
+
+4.3 EVT_TX_QUEUED Payload
++------+------+-----------+--------+----------------------------+
+| Off  | Size | Field     | Type   | Notes                      |
++------+------+-----------+--------+----------------------------+
+| 0    | 1    | queue_pos  | uint8 | Position in queue (1-10)   |
++------+------+-----------+--------+----------------------------+
+
+VERDICT: All implementations match perfectly ✓
+
+================================================================================
+5. CRC16-CCITT ANALYSIS
+================================================================================
+
+Algorithm: CRC-16-CCITT
+Polynomial: 0x1021
+Initial Value: 0xFFFF
+Coverage: First 510 bytes (0-509)
+Storage: Bytes 510-511 (native uint16, little-endian on x86)
+
+VERDICT: All three implementations use IDENTICAL lookup table ✓
+- Firmware (crc16.cpp): Lines 13-46
+- C Library (FlexDevice.h): Lines 132-165
+- Python (FlexDevice.py): Lines 104-137
+
+CRC Table (first 16 entries):
+0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
+0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF
+
+Test Vector: "123456789" -> 0x29B1
+
+================================================================================
+6. COBS IMPLEMENTATION ANALYSIS
+================================================================================
+
+6.1 Encode Algorithm
+-------------------
+All three implementations follow the standard COBS algorithm:
+- Code byte prefixes each run of non-zero bytes
+- Zero bytes are encoded as overhead (distance to next non-zero)
+- Maximum run: 254 bytes (0xFF code)
+- Output ends with 0x00 delimiter
+
+Implementation Details:
+- Firmware (cobs.cpp): Lines 12-50
+- C Library (FlexDevice.h): Lines 179-204
+- Python (FlexDevice.py): Lines 151-174
+
+VERDICT: Functionally equivalent ✓
+
+6.2 Decode Algorithm
+-------------------
+All three implementations:
+- Check trailing 0x00 delimiter
+- Iterate through code bytes
+- Copy (code-1) bytes, insert 0x00 for code < 0xFF
+- Return decoded length or 0 on error
+
+Edge Cases Tested:
+- Empty frame (0x00): Returns 0 ✓
+- Single zero input: Correctly produces no output ✓
+- 254-byte block: Handles block boundary correctly ✓
+
+Potential Issues:
+- Truncated input may not be fully detected in some cases
+- No buffer overflow protection (buffer size is adequate: 520 bytes)
+
+VERDICT: Functionally consistent with minor edge case concerns ⚠️
+
+================================================================================
+7. FIRMWARE ANALYSIS
+================================================================================
+
+7.1 File Structure
+-----------------
+flex-fsk-tx-v2.5/
+├── flex-fsk-tx-v2.5.ino        - Main entry point
+├── config.h                     - Constants & config
+├── binary_packet.h/cpp          - Packet structures & builders
+├── binary_handlers.h/cpp        - Command handlers
+├── binary_events.h/cpp          - Event senders
+├── cobs.h/cpp                   - COBS encoding/decoding
+├── crc16.h/cpp                  - CRC16 calculation
+├── uuid.h/cpp                   - UUID generation
+├── flex_protocol.h/cpp          - FLEX encoding, queue
+├── at_commands.h/cpp            - AT parser + binary handler
+
+7.2 Command Handler Coverage
+---------------------------
+| Command         | Implemented | Functional |
+|-----------------|-------------|------------|
+| CMD_SEND_FLEX   | YES         | FULL      |
+| CMD_GET_STATUS  | YES         | FULL      |
+| CMD_ABORT       | YES         | NACK      |
+| CMD_PING        | YES         | FULL      |
+| CMD_SET_CONFIG  | NO          | -         |
+| CMD_GET_CONFIG  | NO          | -         |
+| CMD_GET_LOGS    | NO          | -         |
+| CMD_CLEAR_LOGS  | NO          | -         |
+| CMD_FACTORY_RESET| YES        | NACK      |
+
+7.3 Known Firmware Issues
+------------------------
+1. No frame synchronization (magic bytes not validated)
+2. No packet type validation beyond length check
+3. Sequence number not validated (8-bit wraps at 255)
+4. No timeout on binary frame reception
+5. Buffer overflow resets state without re-sync
+
+================================================================================
+8. CLI/LIBRARIES ANALYSIS
+================================================================================
+
+8.1 C Library (cli/libraries/gcc/FlexDevice.h)
+---------------------------------------------
+Status: FULLY CONSISTENT ✓
+
+All constants match firmware:
+- PACKET_SIZE: 512
+- PAYLOAD_SIZE: 480
+- CRC_OFFSET: 510
+- TS_OFFSET: 502
+- All opcode values match
+- CRC table identical
+- COBS algorithm identical
+- Payload offsets match exactly
+
+8.2 Python Library (cli/libraries/python/FlexDevice.py)
+-------------------------------------------------------
+Status: MINOR ISSUES ⚠️
+
+Issues Found:
+1. MAX_MESSAGE_PROTO = 255 (should be 248)
+   - Firmware uses MAX_FLEX_MESSAGE_LENGTH = 248
+   - Python allows 255, but messages get truncated
+   
+2. CMD_SEND_ARGS_SIZE = 11 (should be 15)
+   - Not actually used in code (payload len calculated dynamically)
+   - Should be fixed for documentation clarity
+
+Otherwise fully consistent:
+- All opcode values match
+- CRC table identical
+- COBS algorithm identical
+- Payload offsets match exactly
+- Endianness handling correct
+
+8.3 CLI Tool (cli/flex-cli.c)
+----------------------------
+Status: Uses FlexDevice.h library - fully consistent ✓
+
+================================================================================
+9. EDGE CASES & FAILURE POINTS
+================================================================================
+
+9.1 High Priority Issues
+-----------------------
+1. NO FRAME SYNCHRONIZATION
+   - Issue: process_binary_frame() scans for 0x00 but has no sync mechanism
+   - Failure: If first 0x00 is missed, frames can join incorrectly
+   - Location: at_commands.cpp:746-764
+
+2. NO PACKET TYPE VALIDATION
+   - Issue: parse_packet() only checks length, not type/opcode
+   - Failure: Any 512-byte sequence with valid CRC is accepted
+   - Location: binary_packet.cpp:288-299
+
+3. NO SEQUENCE NUMBER VALIDATION
+   - Issue: No SEQ validation in handlers
+   - Failure: Host can send any sequence number, no wrap detection
+   - Location: binary_handlers.cpp (all handlers)
+
+4. NO FRAME RECEPTION TIMEOUT
+   - Issue: binary_frame_pos grows until 0x00 or overflow
+   - Failure: If 0x00 never arrives, buffer overflows and resets
+   - Location: at_commands.cpp:750-753
+
+9.2 Medium Priority Issues
+-------------------------
+1. COBS DECODE INCOMPLETE INPUT CHECK
+   - Issue: Doesn't verify all input consumed before delimiter
+   - Edge case: Malformed COBS could pass through
+
+2. 8-BIT SEQUENCE WRAP RISK
+   - Issue: seq is uint8_t, wraps at 255
+   - Impact: After wrap, host/device may confuse old vs new packets
+
+3. UUID NOT VALIDATED
+   - Issue: UUID can be all zeros
+   - Impact: Event correlation may fail
+
+9.3 Low Priority Issues
+-----------------------
+1. PYTHON MAX_MESSAGE_INCONSISTENCY
+   - Issue: 255 vs 248 constant difference
+   - Impact: Python could accept messages firmware truncates
+
+2. FLOAT ENDIANNESS UNDOCUMENTED
+   - Issue: No spec mentions float byte order
+   - Impact: Works on little-endian hosts, untested on big-endian
+
+================================================================================
+10. RECOMMENDATIONS
+================================================================================
+
+10.1 High Priority (Protocol Reliability)
+-----------------------------------------
+1. Add magic byte validation (0x46 0x4C) at start of binary packets
+2. Add packet type validation (ensure type is 0x01/0x02/0x03)
+3. Add sequence number validation (detect wrap-around)
+4. Add frame reception timeout (e.g., 100ms after first byte)
+
+10.2 Medium Priority (COBS Robustness)
+--------------------------------------
+1. Add compile-time assertion for buffer sizes
+2. Ensure COBS decode fully consumes input before delimiter
+3. Add underread protection in decode loop
+
+10.3 Low Priority (Enhancement)
+-------------------------------
+1. Fix Python MAX_MESSAGE_PROTO: 255 -> 248
+2. Fix Python CMD_SEND_ARGS_SIZE: 11 -> 15 (for docs clarity)
+3. Upgrade to 16-bit sequence number
+4. Add unimplemented command stubs (SET_CONFIG, GET_CONFIG, etc.)
+5. Document float endianness assumption
+
+================================================================================
+11. VERSION HISTORY
+================================================================================
+
+Analysis Versions:
+- v1.0 (2026-05-01): Initial comprehensive analysis
+
+Documentation Changes Made:
+- 2026-05-01: docs/BINARY_PROTOCOL.md updated to v2.5.6
+- 2026-05-01: docs/COBS_ENCAPSULATION.md marked as supplemental
+- 2026-05-01: README.md fixed capcode(4) -> capcode(8)
+
+================================================================================
+END OF REPORT
+================================================================================
