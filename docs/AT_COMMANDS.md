@@ -1,112 +1,111 @@
-# AT Commands Reference
-## FLEX-FSK-TX v2.5
+# AT Commands Reference (v2.5.6)
 
-All commands are terminated with `\r\n`. Responses end with `OK` or `ERROR`.
+All AT commands are line-based and terminated with `\r\n`.
 
----
+- Success responses end with `OK`
+- Invalid/failed operations return `ERROR`
 
 ## Basic
 
-| Command    | Description          | Response     |
-|------------|----------------------|--------------|
-| `AT`       | Connectivity check   | `OK`         |
-| `AT+STATUS?` | Device status      | See below    |
-| `AT+DEVICE?` | Full device info   | See below    |
+| Command | Description |
+|---|---|
+| `AT` | Connectivity check |
+| `AT+STATUS?` | Current runtime state |
+| `AT+DEVICE?` | Device/system information |
+| `AT+RESET` | Reboot device |
+| `AT+ABORT` | Abort current transmission state |
 
-### AT+STATUS?
+### `AT+STATUS?` example
 
-```
-+STATUS: IDLE,queue=0,bat=85%,freq=931.9375,power=10
+```text
++STATUS: READY
 OK
 ```
 
-### AT+DEVICE?
+Possible states:
+- `READY`
+- `WAITING_DATA`
+- `WAITING_MSG`
+- `TRANSMITTING`
+- `ERROR`
 
-```
-+DEVICE: TTGO_FLEX_A1B2,v2.5.4,IDLE,931.9375MHz,10dBm,bat=85%
+### `AT+DEVICE?` example
+
+```text
++DEVICE_FIRMWARE: v2.5.6
++DEVICE_BATTERY: 85%
++DEVICE_MEMORY: 201376 bytes
++DEVICE_FLEX_CAPCODE: 1234567
++DEVICE_FLEX_FREQUENCY: 931.9375
++DEVICE_FLEX_POWER: 10.0
 OK
 ```
-
----
 
 ## Radio Configuration
 
-| Command              | Description                     | Example                  |
-|----------------------|---------------------------------|--------------------------|
-| `AT+FREQ=<MHz>`      | Set TX frequency                | `AT+FREQ=931.9375`       |
-| `AT+FREQ?`           | Query frequency                 | `+FREQ: 931.9375`        |
-| `AT+POWER=<dBm>`     | Set TX power (2-20)             | `AT+POWER=10`            |
-| `AT+POWER?`          | Query TX power                  | `+POWER: 10`             |
-| `AT+FREQPPM=<ppm>`   | Set frequency correction PPM    | `AT+FREQPPM=5`           |
-| `AT+FREQPPM?`        | Query PPM correction            | `+FREQPPM: 5`            |
-
----
+| Command | Description |
+|---|---|
+| `AT+FREQ=<MHz>` | Set TX frequency (`400.0..1000.0`) |
+| `AT+FREQ?` | Query current TX frequency |
+| `AT+FREQPPM=<ppm>` | Set frequency correction (`-50..+50`) |
+| `AT+FREQPPM?` | Query frequency correction |
+| `AT+POWER=<dBm>` | Set TX power (`2..20`) |
+| `AT+POWER?` | Query TX power |
 
 ## Message Transmission
 
-### AT+SEND=\<bytes\>
+### `AT+SEND=<bytes>`
 
-Send pre-encoded FLEX binary data (hex string).
+Puts device into binary-data receive mode for exactly `<bytes>` bytes.
 
-```
-AT+SEND=A1B2C3...
+```text
+AT+SEND=128
++SEND: READY
+...send 128 raw bytes...
 OK
 ```
 
-### AT+MSG=\<capcode\>
+### `AT+MSG=<capcode>`
 
-Send FLEX message with text on the next line.
+Puts device into message receive mode. Next line is message text.
 
-```
+```text
 AT+MSG=1234567
++MSG: READY
 Hello World
 OK
 ```
 
-### AT+MAILDROP=\<0|1\>
+### `AT+MAILDROP=<0|1>` / `AT+MAILDROP?`
 
-Set mail drop flag for next transmission.
+Sets/queries maildrop behavior for next queued AT message.
 
-```
-AT+MAILDROP=1
-OK
-```
+## FLEX Defaults
 
----
+| Command | Description |
+|---|---|
+| `AT+FLEX?` | Query default FLEX settings |
+| `AT+FLEX=CAPCODE,<value>` | Set default capcode |
+| `AT+FLEX=FREQUENCY,<value>` | Set default frequency |
+| `AT+FLEX=POWER,<value>` | Set default TX power |
 
-## WiFi / Network
+## Logging
 
-| Command                    | Description                        |
-|----------------------------|------------------------------------|
-| `AT+WIFI=<ssid>,<pass>`    | Connect to WiFi network            |
-| `AT+WIFI?`                 | Query WiFi status                  |
-| `AT+WIFIENABLE=<0|1>`      | Disable/enable WiFi                |
-| `AT+NETWORK=<mode>`        | Lock transport mode (GSM fw only)  |
-| `AT+NETWORK?`              | Query current transport mode       |
+| Command | Description |
+|---|---|
+| `AT+LOGS?<N>` | Print last N log lines (default 25) |
+| `AT+RMLOG` | Delete log file |
 
-Network modes (GSM firmware only): `AUTO`, `WIFI`, `GSM`, `AP`
+## Time / Clock
 
----
+| Command | Description |
+|---|---|
+| `AT+CCLK=<unix_ts>,<tz_hours>` | Set clock and optional timezone |
+| `AT+CCLK?` | Query current clock |
 
-## Device Configuration
+Example:
 
-| Command                  | Description                         |
-|--------------------------|-------------------------------------|
-| `AT+BANNER=<text>`       | Set custom display banner           |
-| `AT+APIPORT=<port>`      | Set REST API port (default 80)      |
-| `AT+SAVE`                | Save config to NVS                  |
-| `AT+FACTORY`             | Factory reset (requires confirm)    |
-
----
-
-## Clock
-
-| Command                          | Description                        |
-|----------------------------------|------------------------------------|
-| `AT+CCLK=<unix_ts>,<tz_offset>`  | Set clock manually                 |
-| `AT+CCLK?`                       | Query current clock                |
-
-```
+```text
 AT+CCLK=1775426200,-6.0
 OK
 
@@ -115,47 +114,19 @@ AT+CCLK?
 OK
 ```
 
-Timezone offset in hours (float). `-6.0` = UTC-6.
+## Factory Reset
 
----
+| Command | Description |
+|---|---|
+| `AT+FACTORYRESET` | Run factory reset flow |
 
-## Logging
+## Notes
 
-| Command         | Description                          |
-|-----------------|--------------------------------------|
-| `AT+LOGS?<N>`   | Query last N log lines (default 25)  |
-| `AT+RMLOG`      | Delete persistent log file           |
+- This firmware branch does not expose WiFi/network AT commands in `at_commands.cpp`.
+- Binary protocol and AT share one UART; mode is selected by incoming stream content.
 
----
+## Related Docs
 
-## Battery
-
-| Command       | Description         | Response example             |
-|---------------|---------------------|------------------------------|
-| `AT+BATTERY?` | Query battery info  | `+BATTERY: 85%,4150mV`       |
-
----
-
-## Troubleshooting
-
-**Device not responding:**
-```bash
-screen /dev/ttyUSB0 115200
-AT
-# Expect: OK
-```
-
-**Permission denied:**
-```bash
-sudo usermod -aG dialout $USER
-# logout/login
-```
-
-**Check available ports:**
-```bash
-ls /dev/tty{USB,ACM}*
-```
-
-**Device detection:**
-- Heltec WiFi LoRa 32 V2 → `/dev/ttyUSB0`
-- TTGO LoRa32-OLED → `/dev/ttyACM0`
+- `docs/BINARY_PROTOCOL.md`
+- `docs/COBS_ENCAPSULATION.md`
+- `README.md`

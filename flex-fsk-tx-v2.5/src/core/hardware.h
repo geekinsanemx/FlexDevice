@@ -12,7 +12,7 @@
 #include <RadioLib.h>
 #include <U8g2lib.h>
 
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
 #include <RTClib.h>
 #endif
 
@@ -22,7 +22,7 @@
 extern SX1276 radio;
 extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C display;
 
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
 extern RTC_DS3231 rtc;
 extern bool rtc_available;
 #endif
@@ -59,7 +59,7 @@ extern bool battery_present;
 // =============================================================================
 // RTC (DS3231)
 // =============================================================================
-#if RTC_ENABLED
+#ifdef ENABLE_RTC
 bool rtc_init();
 #endif
 

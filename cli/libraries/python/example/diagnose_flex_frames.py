@@ -103,10 +103,10 @@ class DiagnosticFlexDevice(FlexDevice):
             raise
 
         if self.verbose:
-            uuid_hex = decoded[4:20].hex()
+            uuid_hex = decoded[3:19].hex()
             print(
                 f"             packet type=0x{pkt['type']:02X} "
-                f"opcode=0x{pkt['opcode']:02X} seq={pkt['seq']} "
+                f"opcode=0x{pkt['opcode']:02X} "
                 f"uuid={uuid_hex}"
             )
 

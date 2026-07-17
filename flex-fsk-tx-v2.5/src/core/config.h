@@ -9,8 +9,7 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-
-#define FIRMWARE_VERSION "v2.5.6"
+#include "../version.h"
 
 // =============================================================================
 // BOARD SELECTION
@@ -22,7 +21,10 @@
 // =============================================================================
 // COMPILATION FLAGS
 // =============================================================================
-#define RTC_ENABLED false       // Enable DS3231 RTC support
+// The following optional subsystem is DISABLED by default. Enable it via a
+// compiler command-line define, e.g. platformio.ini's -debug environments or
+// scripts/flex-build-upload.sh:
+//   -DENABLE_RTC         Enable DS3231 RTC support
 // #define ENABLE_DEBUG         // Uncomment for verbose debug output
 
 // =============================================================================
@@ -112,6 +114,13 @@ static const uint8_t EMR_PATTERN[EMR_PATTERN_SIZE] = {0xA5, 0x5A, 0xA5, 0x5A};
 // =============================================================================
 #define FACTORY_RESET_PIN 0               // GPIO 0 button
 #define FACTORY_RESET_HOLD_TIME 30000     // 30 seconds
+
+// =============================================================================
+// BINARY PROTOCOL FRAMING
+// =============================================================================
+// Per-frame idle timeout: discard partial frames that stall mid-receive.
+// Derived from baud rate: 520 bytes @ 115200 baud ≈ 45 ms; 200 ms = 4x margin.
+#define BINARY_FRAME_TIMEOUT_MS 200
 
 // =============================================================================
 // WATCHDOG TIMER

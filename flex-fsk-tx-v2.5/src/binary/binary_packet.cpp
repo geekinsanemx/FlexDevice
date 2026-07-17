@@ -40,7 +40,7 @@ static void populate_packet_timestamp(binary_packet_t *pkt) {
 // PACKET BUILDING: COMMANDS
 // =============================================================================
 
-size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
+size_t build_cmd_send_flex(binary_packet_t *pkt, const uint8_t uuid[16],
                            uint64_t capcode, float frequency, int8_t tx_power,
                            uint8_t mail_drop, const char *message, uint8_t msg_len) {
     if (pkt == nullptr || uuid == nullptr || message == nullptr) {
@@ -56,7 +56,6 @@ size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
     pkt->type = PKT_TYPE_CMD;
     pkt->opcode = CMD_SEND_FLEX;
     pkt->flags = FLAG_ACK_REQUIRED;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(CMD_SEND_FLEX_ARGS_SIZE + msg_len);
 
@@ -80,7 +79,7 @@ size_t build_cmd_send_flex(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
 // PACKET BUILDING: RESPONSES
 // =============================================================================
 
-size_t build_rsp_ack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t status) {
+size_t build_rsp_ack(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t status) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -90,7 +89,6 @@ size_t build_rsp_ack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], 
     pkt->type = PKT_TYPE_RSP;
     pkt->opcode = RSP_ACK;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(1);
 
@@ -105,7 +103,7 @@ size_t build_rsp_ack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], 
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_rsp_nack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t status) {
+size_t build_rsp_nack(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t status) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -115,7 +113,6 @@ size_t build_rsp_nack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
     pkt->type = PKT_TYPE_RSP;
     pkt->opcode = RSP_NACK;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(1);
 
@@ -130,7 +127,7 @@ size_t build_rsp_nack(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_rsp_status(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16],
+size_t build_rsp_status(binary_packet_t *pkt, const uint8_t uuid[16],
                         const rsp_status_payload_t *status) {
     if (pkt == nullptr || uuid == nullptr || status == nullptr) {
         return 0;
@@ -141,7 +138,6 @@ size_t build_rsp_status(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16
     pkt->type = PKT_TYPE_RSP;
     pkt->opcode = RSP_STATUS;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(sizeof(rsp_status_payload_t));
 
@@ -156,7 +152,7 @@ size_t build_rsp_status(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_rsp_pong(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16]) {
+size_t build_rsp_pong(binary_packet_t *pkt, const uint8_t uuid[16]) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -166,7 +162,6 @@ size_t build_rsp_pong(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16])
     pkt->type = PKT_TYPE_RSP;
     pkt->opcode = RSP_PONG;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = 0;
 
@@ -183,7 +178,7 @@ size_t build_rsp_pong(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16])
 // PACKET BUILDING: EVENTS
 // =============================================================================
 
-size_t build_evt_tx_queued(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t pos) {
+size_t build_evt_tx_queued(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t pos) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -193,7 +188,6 @@ size_t build_evt_tx_queued(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
     pkt->type = PKT_TYPE_EVT;
     pkt->opcode = EVT_TX_QUEUED;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(1);
 
@@ -208,7 +202,7 @@ size_t build_evt_tx_queued(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_evt_tx_start(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16]) {
+size_t build_evt_tx_start(binary_packet_t *pkt, const uint8_t uuid[16]) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -218,7 +212,6 @@ size_t build_evt_tx_start(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[
     pkt->type = PKT_TYPE_EVT;
     pkt->opcode = EVT_TX_START;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = 0;
 
@@ -231,7 +224,7 @@ size_t build_evt_tx_start(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_evt_tx_done(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t result) {
+size_t build_evt_tx_done(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t result) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -241,7 +234,6 @@ size_t build_evt_tx_done(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[1
     pkt->type = PKT_TYPE_EVT;
     pkt->opcode = EVT_TX_DONE;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(1);
 
@@ -256,7 +248,7 @@ size_t build_evt_tx_done(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[1
     return PACKET_FIXED_SIZE;
 }
 
-size_t build_evt_tx_failed(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid[16], uint8_t error) {
+size_t build_evt_tx_failed(binary_packet_t *pkt, const uint8_t uuid[16], uint8_t error) {
     if (pkt == nullptr || uuid == nullptr) {
         return 0;
     }
@@ -266,7 +258,6 @@ size_t build_evt_tx_failed(binary_packet_t *pkt, uint8_t seq, const uint8_t uuid
     pkt->type = PKT_TYPE_EVT;
     pkt->opcode = EVT_TX_FAILED;
     pkt->flags = 0x00;
-    pkt->seq = seq;
     uuid_copy(pkt->uuid, uuid);
     pkt->payload_len = htons_custom(1);
 

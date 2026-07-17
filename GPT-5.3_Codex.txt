@@ -1,0 +1,242 @@
+================================================================================
+FLEXDEVICE v2.5.6 — INDEPENDENT CONSISTENCY ANALYSIS
+Model: GPT-5.3 Codex
+Date: 2026-05-01
+================================================================================
+
+Scope
+- Reviewed planning/design docs in `docs/`.
+- Reviewed top-level protocol/system documentation in `README.md`.
+- Reviewed firmware implementation in `flex-fsk-tx-v2.5/`.
+- Reviewed CLI and libraries in `cli/` (C CLI, C header-only library, Python library, examples, library READMEs).
+- Reviewed `MiniMax_M2.5_Free.txt` for comparison, but findings below are independently derived from source files.
+
+Ground Truth Used
+- Firmware code is treated as protocol source of truth.
+- Key references:
+  - `flex-fsk-tx-v2.5/binary_packet.h`
+  - `flex-fsk-tx-v2.5/binary_packet.cpp`
+  - `flex-fsk-tx-v2.5/binary_handlers.cpp`
+  - `flex-fsk-tx-v2.5/binary_events.cpp`
+  - `flex-fsk-tx-v2.5/at_commands.cpp`
+  - `flex-fsk-tx-v2.5/cobs.cpp`
+  - `flex-fsk-tx-v2.5/crc16.cpp`
+
+--------------------------------------------------------------------------------
+1) Firmware-Verified Protocol Baseline
+--------------------------------------------------------------------------------
+
+Packet and framing
+- Fixed packet size: 512 bytes (`PACKET_FIXED_SIZE`).
+- Payload: 480 bytes; timestamp: 8 bytes; CRC at offset 510.
+- Framing: COBS encoded frame terminated by single `0x00` delimiter.
+
+Packet header
+- type/opcode/flags/seq are all `uint8_t`.
+- UUID is 16 bytes.
+- payload_len is big-endian on wire.
+
+Opcode map in firmware
+- Commands:
+  - `0x01` CMD_SEND_FLEX
+  - `0x02` CMD_GET_STATUS
+  - `0x03` CMD_ABORT
+  - `0x04` CMD_SET_CONFIG
+  - `0x05` CMD_GET_CONFIG
+  - `0x06` CMD_PING
+  - `0x07` CMD_GET_LOGS
+  - `0x08` CMD_CLEAR_LOGS
+  - `0x09` CMD_FACTORY_RESET
+- Responses:
+  - `0x01` RSP_ACK
+  - `0x02` RSP_NACK
+  - `0x03` RSP_STATUS
+  - `0x04` RSP_CONFIG
+  - `0x05` RSP_PONG
+  - `0x06` RSP_LOGS
+- Events:
+  - `0x01` EVT_TX_QUEUED
+  - `0x02` EVT_TX_START
+  - `0x03` EVT_TX_DONE
+  - `0x04` EVT_TX_FAILED
+  - `0x05` EVT_BOOT
+  - `0x06` EVT_ERROR
+  - `0x07` EVT_BATTERY_LOW
+  - `0x08` EVT_POWER_DISCONNECTED
+
+CMD_SEND_FLEX payload layout in firmware
+- [0..7] capcode `uint64_t` little-endian
+- [8..11] frequency `float` little-endian
+- [12] tx power `int8_t`
+- [13] mail_drop `uint8_t`
+- [14] msg_len `uint8_t`
+- [15..] message bytes
+
+Status/result codes
+- ACK/NACK status uses STATUS_* family (ACCEPTED, REJECTED, QUEUE_FULL, INVALID_PARAM, BUSY, ERROR).
+- TX done/failed uses RESULT_* family.
+
+Time sync behavior
+- Incoming packet timestamp can auto-adjust device time if TS_FLAG_AUTO_ADJUST and drift > 1 second.
+- Outgoing packet timestamp flags are set VALID only if `system_time_initialized` is true.
+
+--------------------------------------------------------------------------------
+2) Docs vs Firmware — Findings
+--------------------------------------------------------------------------------
+
+2.1 `docs/BINARY_PROTOCOL.md` is still partially inconsistent
+
+Major mixed-state issue (contains both updated and legacy sections)
+- The opcode tables near top are aligned with current firmware.
+- But legacy payload sections remain and conflict:
+  - It still has stale sections like `CMD_SET_FREQ`, `CMD_SET_POWER`, `CMD_SEND_RAW` in payload chapter.
+  - It also includes both `CMD_PING (0x01)` legacy and `CMD_PING (0x06)` current in same doc.
+- Evidence: legacy block starts around lines 169+ while current opcodes are declared around lines 62+.
+
+Sequence number mismatch
+- Doc says SEQ range is 0..65535.
+- Firmware uses `uint8_t seq` in packet struct.
+- Effective range is 0..255, wraps at 256.
+
+COBS wire-format mismatch
+- Doc says on-wire format: ``0x00 <COBS-encoded-packet> 0x00``.
+- Firmware transmit writes COBS output ending in delimiter only (no leading delimiter).
+- Correct practical wire format here is `<COBS_ENCODED ... 0x00>`.
+
+Validation behavior mismatch
+- Doc claims device validates magic/version and emits detailed NAK reasons for invalid magic/version.
+- Firmware has no protocol magic/version fields for binary packets and no such validation path.
+
+Message length semantics mismatch
+- Doc payload says message_len 0..248 for CMD_SEND_FLEX.
+- Firmware protocol permits up to 255 in `msg_len` (`MAX_MESSAGE_IN_PROTOCOL`) and truncates operationally to FLEX limit (248) in handler path.
+
+2.2 `docs/COBS_ENCAPSULATION.md`
+- Generally aligned on algorithm and CRC coverage.
+- It is now marked supplemental (good), but examples imply generic behavior and do not explicitly reconcile with current firmware’s mixed ASCII/binary stream edge handling.
+
+2.3 `docs/AT_COMMANDS.md` is outdated relative to firmware
+- Contains commands not implemented in this firmware branch (WiFi/network entries).
+- `AT+DEVICE?` example format/version is stale (`v2.5.4` style single line), while firmware emits multi-line `+DEVICE_*` fields.
+- `AT+STATUS?` example format differs from current firmware output shape.
+
+2.4 `README.md` (root)
+- Binary protocol section is mostly aligned with firmware.
+- Still has structural/path drift and tooling references to non-existent `tools/` tree.
+- Mentions/links:
+  - `tools/README.md`
+  - `tools/libflex_binary/README.md`
+  - `tools/python/README.md`
+  - `tools/flex-binary-client`
+- Actual repo uses `cli/` tree, not `tools/`.
+
+--------------------------------------------------------------------------------
+3) CLI/Libraries vs Firmware — Findings
+--------------------------------------------------------------------------------
+
+3.1 C library (`cli/libraries/gcc/FlexDevice.h`)
+- Protocol constants and packet structure usage mostly match firmware.
+- CRC table and COBS implementation are consistent with firmware behavior.
+- Timestamp and payload endianness align with firmware.
+- Uses `FLEX_MAX_MSG_PROTO=255` and sends up to 255 bytes (firmware later truncates to FLEX 248 path).
+
+3.2 Python library (`cli/libraries/python/FlexDevice.py`)
+- Packet constants/opcodes mostly aligned.
+- CRC and COBS logic aligned with firmware behavior.
+- Timestamp packing and parsing offsets match firmware packet layout.
+- Two inconsistencies:
+  - `CMD_SEND_ARGS_SIZE = 11` in code (incorrect constant; effective fixed args are 15). Current code path doesn’t rely on this constant for length calc, so behavior still works.
+  - `MAX_MESSAGE_PROTO = 255` allows larger payload than practical FLEX message limit.
+
+3.3 C CLI (`cli/flex-cli.c`) and CLI docs path drift
+- `flex-cli.c` includes `"libflex_binary/FlexDevice.h"`.
+- Repository currently stores header at `cli/libraries/gcc/FlexDevice.h`.
+- `cli/README.md` file tree documents `libflex_binary/` but actual tree is `libraries/gcc/` and `libraries/python/`.
+- This is a packaging/documentation mismatch and can break clean local build instructions depending on include paths.
+
+3.4 Library README mismatches
+- `cli/libraries/gcc/README.md` claims packet builder writes magic `0x46 0x4C`.
+- Actual C library builder writes packet type/opcode at bytes 0..1; no magic field exists.
+- `cli/libraries/python/README.md` says `CMD_SEND_ARGS_SIZE = 15` while code has 11.
+
+--------------------------------------------------------------------------------
+4) Reliability and Robustness Assessment
+--------------------------------------------------------------------------------
+
+4.1 COBS robustness
+- Encoder/decoder are standard and efficient.
+- Null checks and delimiter checks are present.
+- Known limitation: decoder trusts destination capacity and does not perform strict malformed-run bounds signaling beyond basic checks.
+
+4.2 Binary frame handling robustness
+- Receiver collects until `0x00` delimiter.
+- Buffer overflow case resets frame position and continues; this can drop synchronization context.
+- No explicit per-frame idle timeout once binary frame intake starts.
+
+4.3 Failure-proof protocol claim: NOT fully failure-proof
+- Strong points:
+  - CRC16 validation before dispatch
+  - Fixed-size decoded packet requirement (512)
+  - UUID correlation in clients
+- Weak points:
+  - No explicit protocol magic/version field validation in binary packets
+  - No sequence-window validation or replay handling
+  - Mixed ASCII/binary stream still relies on heuristic first-byte classification
+  - Some documentation promises validations that are not implemented
+
+--------------------------------------------------------------------------------
+5) High-Impact Inconsistencies (Prioritized)
+--------------------------------------------------------------------------------
+
+P0 (must fix for correct docs/tooling)
+1. `docs/BINARY_PROTOCOL.md` has mixed old+new spec blocks (self-conflicting).
+2. `README.md` and docs link to `tools/` paths that do not exist in current repo.
+3. `cli/README.md` tree and `flex-cli.c` include path do not match actual on-disk layout.
+
+P1 (important correctness/clarity)
+4. `docs/BINARY_PROTOCOL.md` SEQ range says 0..65535; firmware is 8-bit.
+5. `docs/BINARY_PROTOCOL.md` COBS wire summary includes leading `0x00` that firmware does not emit.
+6. `docs/AT_COMMANDS.md` examples and command set do not reflect current firmware responses/features.
+7. `cli/libraries/gcc/README.md` states magic bytes that are not part of actual packet format.
+8. `cli/libraries/python/README.md` and `FlexDevice.py` disagree on `CMD_SEND_ARGS_SIZE`.
+
+P2 (behavioral/documentation nuance)
+9. Message-length semantics split (protocol 255 vs practical FLEX 248) needs one explicit canonical explanation across all docs.
+10. Timestamp flag behavior in docs should mention that device sets VALID only when system time is initialized.
+
+--------------------------------------------------------------------------------
+6) Recommendations
+--------------------------------------------------------------------------------
+
+Documentation normalization plan
+- Re-author `docs/BINARY_PROTOCOL.md` from firmware headers (`binary_packet.h`) and handler behavior (`binary_handlers.cpp`) to remove legacy sections entirely.
+- Update all path references from `tools/`/`libflex_binary/` to current `cli/`/`libraries/gcc`/`libraries/python`.
+- Refresh `docs/AT_COMMANDS.md` examples directly from current `at_commands.cpp` response formats.
+
+Client docs/code alignment
+- Make Python code constant match docs (`CMD_SEND_ARGS_SIZE=15`) or remove constant if unused.
+- Make all CLI docs explicit about message limits:
+  - transport max 255 bytes
+  - firmware/FLEX practical max 248 chars (truncation behavior)
+
+Protocol hardening (future code work, not done here)
+- Add explicit protocol version/magic if desired and document it consistently.
+- Add robust frame timeout/resync strategy in binary receive path.
+- Consider sequence validation policy if replay/order guarantees are needed.
+
+--------------------------------------------------------------------------------
+7) Final Verdict
+--------------------------------------------------------------------------------
+
+Current state
+- Firmware and core packet implementation are internally coherent.
+- C and Python client libraries are operationally close to firmware behavior.
+- Documentation set is still not fully synchronized: the main binary protocol doc contains conflicting legacy/current sections, and tool/library paths are inconsistent across top-level docs and CLI docs.
+
+Bottom line
+- Implementation is usable and mostly consistent.
+- Documentation integrity is the largest current risk (integration confusion, wrong assumptions, broken build/docs paths).
+
+================================================================================
+END OF REPORT
+================================================================================

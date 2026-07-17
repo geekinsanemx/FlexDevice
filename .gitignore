@@ -6,9 +6,10 @@
 *.lo
 *.o
 *.obj
-host/bin/
-host/obj/
 build/
+
+# PlatformIO build artifacts
+.pio/
 
 # Precompiled Headers
 *.gch
@@ -58,9 +59,6 @@ bkp/
 
 # claude
 .claude
-
-# compiled application
-host/bin/flex-fsk-tx
 
 # IDE
 .vscode/

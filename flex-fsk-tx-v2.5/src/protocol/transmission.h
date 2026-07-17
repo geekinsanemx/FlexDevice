@@ -31,5 +31,6 @@ void check_transmission_task_health();
 
 extern TaskHandle_t transmission_task_handle;
 extern volatile bool transmission_task_running;
+extern volatile unsigned long transmission_last_heartbeat;
 
 #endif // TRANSMISSION_H

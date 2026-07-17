@@ -6,7 +6,7 @@
 #include "utils.h"
 #include "config.h"
 #include "storage.h"
-#include "boards/boards.h"
+#include "../../include/boards/boards.h"
 
 // =============================================================================
 // STRING CONVERSION

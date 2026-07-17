@@ -10,7 +10,7 @@
 #define FLEX_PROTOCOL_H
 
 #include <Arduino.h>
-#include "config.h"
+#include "../core/config.h"
 
 // =============================================================================
 // MESSAGE QUEUE

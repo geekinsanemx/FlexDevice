@@ -7,20 +7,20 @@
  */
 
 #include "at_commands.h"
-#include "config.h"
-#include "logging.h"
-#include "storage.h"
-#include "hardware.h"
-#include "display.h"
+#include "../core/config.h"
+#include "../core/logging.h"
+#include "../core/storage.h"
+#include "../core/hardware.h"
+#include "../core/display.h"
 #include "flex_protocol.h"
-#include "utils.h"
-#include "boards/boards.h"
-#include "binary_packet.h"
-#include "binary_handlers.h"
-#include "binary_events.h"
-#include "cobs.h"
-#include "crc16.h"
-#include "uuid.h"
+#include "../core/utils.h"
+#include "../../include/boards/boards.h"
+#include "../binary/binary_packet.h"
+#include "../binary/binary_handlers.h"
+#include "../binary/binary_events.h"
+#include "../binary/cobs.h"
+#include "../binary/crc16.h"
+#include "../binary/uuid.h"
 
 // =============================================================================
 // GLOBAL VARIABLES
@@ -560,7 +560,7 @@ bool at_parse_command(char* cmd_buffer) {
 
             system_time_initialized = true;
 
-            #if RTC_ENABLED
+            #ifdef ENABLE_RTC
             // Sync RTC if available
             if (rtc_available) {
                 rtc.adjust(DateTime((uint32_t)timestamp));
@@ -740,10 +740,29 @@ void at_process_serial() {
 // BINARY PROTOCOL PROCESSING
 // =============================================================================
 
-static uint8_t binary_frame_buffer[520];
+static uint8_t binary_frame_buffer[PACKET_FIXED_SIZE + 10];
 size_t binary_frame_pos = 0;
 
+// Fix 3: per-frame idle timeout tracking
+static unsigned long binary_frame_start_ms = 0;
+
+
+bool binary_frame_timeout_check() {
+    if (binary_frame_pos > 0 &&
+        (millis() - binary_frame_start_ms) > BINARY_FRAME_TIMEOUT_MS) {
+        logMessagef("BINARY: Frame timeout after %lu ms, %u bytes discarded",
+                    (unsigned long)(millis() - binary_frame_start_ms),
+                    (unsigned)binary_frame_pos);
+        binary_frame_pos = 0;
+        return true;
+    }
+    return false;
+}
+
 void process_binary_frame() {
+    // Fix 3: discard stalled partial frames (shared logic with loop() dispatch)
+    binary_frame_timeout_check();
+
     while (Serial.available()) {
         uint8_t byte = Serial.read();
 
@@ -751,6 +770,11 @@ void process_binary_frame() {
             logMessage("BINARY: Frame buffer overflow, resetting");
             binary_frame_pos = 0;
             continue;
+        }
+
+        // Record timestamp on first byte of new frame
+        if (binary_frame_pos == 0) {
+            binary_frame_start_ms = millis();
         }
 
         binary_frame_buffer[binary_frame_pos++] = byte;
@@ -773,7 +797,7 @@ void handle_binary_packet(uint8_t *cobs_data, size_t len) {
     }
 
     if (decoded_len != PACKET_FIXED_SIZE) {
-        logMessagef("BINARY: Invalid packet size %d (expected %d)",
+        logMessagef("BINARY: Invalid decoded size %d (expected %d)",
                     decoded_len, PACKET_FIXED_SIZE);
         return;
     }
@@ -810,7 +834,7 @@ void handle_binary_packet(uint8_t *cobs_data, size_t len) {
 
             system_time_initialized = true;
 
-            #if RTC_ENABLED
+            #ifdef ENABLE_RTC
             // Sync RTC if flag active and hardware available
             if ((pkt.ts.flags & TS_FLAG_SYNC_RTC) && rtc_available) {
                 rtc.adjust(DateTime((uint32_t)host_timestamp));
